@@ -1,13 +1,15 @@
 name: Continuous Deployment
 
 on:
-  release:
-    types:
-      - created
+  push:
+    branches:
+      - master
+      - cd
+#    tags:
+#      - v*
 
 env:
   REGION: us-east1-b
-  TARGET: $GITHUB_WORKSPACE/target/release/sparky
 
 jobs:
   deploy:
@@ -20,15 +22,10 @@ jobs:
         with:
           command: build
           args: --release
-      - uses: skx/github-action-publish-binaries@release-1.3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: $TARGET
       - uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
         with:
           service_account_email: sparky-cd@api-7212810313638865816-21455.iam.gserviceaccount.com
           service_account_key: ${{ secrets.GCLOUD_CD }}
       - run: gcloud config set project api-7212810313638865816-21455
-      - run: gcloud compute scp --zone $REGION $TARGET base-micro:./sparky/
+      - run: gcloud compute scp --zone $REGION $GITHUB_WORKSPACE/target/release/sparky base-micro:./sparky/
       - run: gcloud compute ssh base-micro --zone $REGION --command='systemctl restart sparky'
