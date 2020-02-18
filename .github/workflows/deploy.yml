@@ -1,14 +1,9 @@
 name: Continuous Deployment
 
 on:
-  # todo replace with v* tags
-  push:
-    branches:
-      - master
-      - cd
-#  release:
-#    types:
-#      - created
+  release:
+    types:
+      - created
 
 env:
   REGION: us-east1-b
@@ -21,10 +16,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
       - uses: actions-rs/cargo@v1
         with:
           command: build
@@ -40,5 +31,4 @@ jobs:
           service_account_key: ${{ secrets.GCLOUD_CD }}
       - run: gcloud config set project api-7212810313638865816-21455
       - run: gcloud compute scp --zone $REGION $TARGET base-micro:./sparky/
-        # todo uncomment when service ready
-#      - run: gcloud compute ssh base-micro --zone $REGION --command='systemctl restart sparky'
+      - run: gcloud compute ssh base-micro --zone $REGION --command='systemctl restart sparky'
