@@ -7,6 +7,7 @@ on:
 
 env:
   REGION: us-east1-b
+  HOST: base-micro-2
 
 jobs:
   deploy:
@@ -21,8 +22,8 @@ jobs:
           args: --release
       - uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
         with:
-          service_account_email: sparky-cd@api-7212810313638865816-21455.iam.gserviceaccount.com
+          service_account_email: base-micro-admin@durlendiamenfes1.iam.gserviceaccount.com
           service_account_key: ${{ secrets.GCLOUD_CD }}
-      - run: gcloud config set project api-7212810313638865816-21455
-      - run: gcloud compute scp --zone $REGION $GITHUB_WORKSPACE/target/release/sparky base-micro:./sparky/
-      - run: gcloud compute ssh base-micro --zone $REGION --command='sudo systemctl restart sparky'
+      - run: gcloud config set project durlendiamenfes1
+      - run: gcloud compute scp $GITHUB_WORKSPACE/target/release/sparky $HOST:/opt/sparky/ --zone $REGION
+      - run: gcloud compute ssh $HOST --command='sudo systemctl restart sparky' --zone $REGION
