@@ -2,11 +2,8 @@ name: Continuous Deployment
 
 on:
   push:
-    branches:
-      - master
-      - cd
-#    tags:
-#      - v*
+    tags:
+      - v*
 
 env:
   REGION: us-east1-b
@@ -28,4 +25,4 @@ jobs:
           service_account_key: ${{ secrets.GCLOUD_CD }}
       - run: gcloud config set project api-7212810313638865816-21455
       - run: gcloud compute scp --zone $REGION $GITHUB_WORKSPACE/target/release/sparky base-micro:./sparky/
-      - run: gcloud compute ssh base-micro --zone $REGION --command='systemctl restart sparky'
+      - run: gcloud compute ssh base-micro --zone $REGION --command='sudo systemctl restart sparky'
