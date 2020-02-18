@@ -1,3 +1,4 @@
+use dotenv::dotenv;
 use serenity::client::Client;
 use serenity::framework::standard::help_commands::with_embeds;
 use serenity::framework::standard::{
@@ -31,6 +32,8 @@ fn my_help(
 }
 
 fn main() {
+    dotenv().ok();
+
     let mut client = Client::new(&env::var("DISCORD_TOKEN").expect("token"), Handler)
         .expect("Error creating client");
     client.with_framework(
@@ -55,7 +58,7 @@ fn simple(ctx: &mut Context, msg: &Message) -> CommandResult {
         .send_message(&ctx, |m| m.content("Quel jour ?"))
     {
         for em in &["🇱", "🇦", "🇪", "🇯", "🇻", "🇸", "🇩", "🚫"] {
-            let _ = reply.react(&ctx, *em);
+            reply.react(&ctx, *em).ok();
         }
     }
     Ok(())

@@ -5,4 +5,5 @@ authors = ["Paul Blouët <paul@paulblouet.fr>"]
 edition = "2018"
 
 [dependencies]
+dotenv = "0.15.0"
 serenity = "0.8.0"

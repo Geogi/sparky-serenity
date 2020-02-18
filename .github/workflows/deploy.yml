@@ -1,0 +1,35 @@
+name: Continuous Deployment
+
+on:
+  push:
+    # todo replace with v* tags
+    branches:
+      - master
+#    tags:
+#      - v*
+
+env:
+  REGION: us-east1-b
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+      - uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        with:
+          service_account_email: sparky-cd@api-7212810313638865816-21455.iam.gserviceaccount.com
+          service_account_key: ${{ secrets.GCLOUD_CD }}
+      - run: gcloud config set project api-7212810313638865816-21455
+      - run: gcloud compute scp --zone $REGION $GITHUB_WORKSPACE/target/release/sparky base-micro:./sparky/
+        # todo uncomment when service ready
+#      - run: gcloud compute ssh base-micro --zone $REGION --command='systemctl restart sparky'
