@@ -67,27 +67,14 @@ pub fn fr_day(date: Date<Utc>) -> &'static str {
     }
 }
 
-pub fn weekday_emote(day: Weekday) -> &'static str {
-    match day {
+pub fn weekday_emote(date: Date<Utc>) -> &'static str {
+    match date.weekday() {
         Weekday::Mon => "🇱",
         Weekday::Tue => "🇦",
         Weekday::Wed => "🇪",
         Weekday::Thu => "🇯",
         Weekday::Fri => "🇻",
         Weekday::Sat => "🇸",
-        Weekday::Sun => "🇩",
-    }
-}
-
-pub fn weekday_from_fr(input: &str) -> Option<Weekday> {
-    match input.to_lowercase().as_str() {
-        "lundi" => Some(Weekday::Mon),
-        "mardi" => Some(Weekday::Tue),
-        "mercredi" => Some(Weekday::Wed),
-        "jeudi" => Some(Weekday::Thu),
-        "vendredi" => Some(Weekday::Fri),
-        "samedi" => Some(Weekday::Sat),
-        "dimanche" => Some(Weekday::Sun),
-        _ => None,
+        Weekday::Sun => "🇸",
     }
 }
