@@ -12,7 +12,6 @@ use serenity::model::channel::{Channel, Message, Reaction};
 use serenity::model::guild::Role;
 use serenity::model::id::RoleId;
 use serenity::utils::MessageBuilder;
-use serenity::model::user::User;
 
 match_id! {
 const RUNNER: RoleId = match {
@@ -71,11 +70,11 @@ fn plan(ctx: &mut Context, msg: &Message) -> CommandResult {
                         })))
                     })
             })
-                .reactions(
-                    (0..=6)
-                        .map(|inc| weekday_emote((today + Duration::days(inc)).weekday()))
-                        .chain(vec!["🚫"]),
-                )
+            .reactions(
+                (0..=6)
+                    .map(|inc| weekday_emote((today + Duration::days(inc)).weekday()))
+                    .chain(vec!["🚫"]),
+            )
         })
         .unwrap();
     Ok(())
@@ -90,7 +89,7 @@ fn plan_edit(ctx: Context, reaction: Reaction) {
                 if let Some(embed) = message.embeds.first() {
                     if let Some(footer) = &embed.footer {
                         if let Some(Embedded::EShadowrunPlan(ShadowrunPlan { first_day, .. })) =
-                        decode(&footer.text)
+                            decode(&footer.text)
                         {
                             let orig = message.embeds.first().unwrap().clone();
                             let guild = chan.guild_id;
@@ -107,8 +106,7 @@ fn plan_edit(ctx: Context, reaction: Reaction) {
                                     )
                                     .unwrap();
                                 users.retain(|u| u.id != ctx.http.get_current_user().unwrap().id);
-                                available.push(users
-                                );
+                                available.push(users);
                                 day = day.succ();
                             }
                             message
