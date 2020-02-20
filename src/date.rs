@@ -67,8 +67,8 @@ pub fn fr_day(date: Date<Utc>) -> &'static str {
     }
 }
 
-pub fn weekday_emote(date: Date<Utc>) -> &'static str {
-    match date.weekday() {
+pub fn weekday_emote(day: Weekday) -> &'static str {
+    match day {
         Weekday::Mon => "🇱",
         Weekday::Tue => "🇦",
         Weekday::Wed => "🇪",

@@ -6,10 +6,10 @@ use serenity::prelude::Context;
 pub struct Handler;
 impl EventHandler for Handler {
     fn reaction_add(&self, ctx: Context, add_reaction: Reaction) {
-        shadowrun_reaction_add(&self, ctx, add_reaction);
+        shadowrun_reaction_add(ctx, add_reaction);
     }
 
     fn reaction_remove(&self, ctx: Context, removed_reaction: Reaction) {
-        shadowrun_reaction_remove(&self, ctx, removed_reaction);
+        shadowrun_reaction_remove(ctx, removed_reaction);
     }
 }
