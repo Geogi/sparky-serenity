@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use snap::read::FrameDecoder;
 use snap::write::FrameEncoder;
 use std::io::{Read, Write};
-use std::fs::read;
 
 const CHUNK_LEN: usize = 60;
 
