@@ -1,4 +1,4 @@
-use crate::shadowrun::ShadowrunPlan;
+use crate::shadowrun::plan::ShadowrunPlan;
 use base64::write::EncoderWriter;
 use base64::STANDARD;
 use bincode::{deserialize, serialize};

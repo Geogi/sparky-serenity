@@ -1,17 +1,18 @@
-use crate::date::{fr_day, fr_month, fr_weekday, weekday_emote};
+use crate::date::{fr_day, fr_month, fr_weekday, weekday_emote, weekday_from_fr};
 use crate::state::{decode, encode, Embedded};
-use chrono::{Datelike, Duration, Utc, Weekday};
+use chrono::{Datelike, Duration, Utc};
 use inflector::Inflector;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serenity::client::Context;
-use serenity::framework::standard::macros::{command, group};
+use serenity::framework::standard::macros::command;
 use serenity::framework::standard::CommandResult;
 use serenity::model::channel::ReactionType::Unicode;
 use serenity::model::channel::{Channel, Message, Reaction};
 use serenity::model::guild::Role;
 use serenity::model::id::RoleId;
 use serenity::utils::MessageBuilder;
+use std::collections::HashSet;
+use std::ops::BitXor;
 
 match_id! {
 const RUNNER: RoleId = match {
@@ -19,26 +20,11 @@ const RUNNER: RoleId = match {
     ytp => 679702431222726715,
 }}
 
-#[group]
-#[prefix = "sr"]
-#[commands(plan)]
-pub struct Shadowrun;
-
-pub fn shadowrun_reaction_add(ctx: Context, add_reaction: Reaction) {
-    plan_edit(ctx, add_reaction);
-}
-
-pub fn shadowrun_reaction_remove(ctx: Context, removed_reaction: Reaction) {
-    plan_edit(ctx, removed_reaction);
-}
-
 #[derive(Serialize, Deserialize)]
-pub struct ShadowrunPlan {
-    first_day: Weekday,
-}
+pub struct ShadowrunPlan;
 
 #[command]
-fn plan(ctx: &mut Context, msg: &Message) -> CommandResult {
+pub fn plan(ctx: &mut Context, msg: &Message) -> CommandResult {
     let today = Utc::today();
     let runner: Role = RUNNER.to_role_cached(&ctx).unwrap();
     let last_day = today + Duration::days(6);
@@ -64,11 +50,7 @@ fn plan(ctx: &mut Context, msg: &Message) -> CommandResult {
                             true,
                         )
                     }))
-                    .footer(|f| {
-                        f.text(encode(Embedded::EShadowrunPlan(ShadowrunPlan {
-                            first_day: today.weekday(),
-                        })))
-                    })
+                    .footer(|f| f.text(encode(Embedded::EShadowrunPlan(ShadowrunPlan))))
             })
             .reactions(
                 (0..=6)
@@ -80,7 +62,7 @@ fn plan(ctx: &mut Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
-fn plan_edit(ctx: Context, reaction: Reaction) {
+pub fn plan_edit(ctx: Context, reaction: Reaction) {
     if reaction.user_id != ctx.http.get_current_user().unwrap().id {
         if let Channel::Guild(chan_cell) = reaction.channel_id.to_channel_cached(&ctx).unwrap() {
             let chan = chan_cell.read();
@@ -88,14 +70,16 @@ fn plan_edit(ctx: Context, reaction: Reaction) {
             if message.is_own(&ctx) {
                 if let Some(embed) = message.embeds.first() {
                     if let Some(footer) = &embed.footer {
-                        if let Some(Embedded::EShadowrunPlan(ShadowrunPlan { first_day, .. })) =
-                            decode(&footer.text)
+                        if let Some(Embedded::EShadowrunPlan(ShadowrunPlan)) = decode(&footer.text)
                         {
                             let orig = message.embeds.first().unwrap().clone();
-                            let guild = chan.guild_id;
+                            let guild_id = chan.guild_id;
                             let mut available = vec![];
-                            let mut day = first_day;
+                            let mut voted = HashSet::new();
                             let footer = orig.clone().footer.unwrap().text;
+                            let wd_str =
+                                &orig.fields.first().unwrap().name.split(' ').next().unwrap();
+                            let mut day = weekday_from_fr(wd_str).unwrap();
                             for _ in 0..=6 {
                                 let mut users = message
                                     .reaction_users(
@@ -106,14 +90,36 @@ fn plan_edit(ctx: Context, reaction: Reaction) {
                                     )
                                     .unwrap();
                                 users.retain(|u| u.id != ctx.http.get_current_user().unwrap().id);
+                                for user in &users {
+                                    voted.insert(user.id);
+                                }
                                 available.push(users);
                                 day = day.succ();
                             }
+                            for user in message
+                                .reaction_users(&ctx, Unicode("🚫".to_owned()), None, None)
+                                .unwrap()
+                            {
+                                voted.insert(user.id);
+                            }
+                            let guild_cell = guild_id.to_guild_cached(&ctx).unwrap();
+                            let guild = guild_cell.read();
+                            let mut runners = guild.members.iter().filter_map(|(id, member)| {
+                                if member.roles.contains(&RUNNER) {
+                                    Some(id)
+                                } else {
+                                    None
+                                }
+                            });
+                            let exhaustive = runners.all(|id| voted.contains(id));
                             message
                                 .edit(&ctx, |m| {
                                     m.embed(|e| {
                                         e.title(orig.title.unwrap())
-                                            .description(orig.description.unwrap())
+                                            .description(maybe_check(
+                                                orig.description.unwrap(),
+                                                exhaustive,
+                                            ))
                                             .colour(orig.colour)
                                             .footer(|f| f.text(footer))
                                             .fields(orig.fields.iter().enumerate().map(
@@ -129,7 +135,7 @@ fn plan_edit(ctx: Context, reaction: Reaction) {
                                                             } else {
                                                                 list.iter()
                                                                     .map(|user| {
-                                                                        user.nick_in(&ctx, guild)
+                                                                        user.nick_in(&ctx, guild_id)
                                                                             .unwrap_or(
                                                                                 user.name.clone(),
                                                                             )
@@ -150,5 +156,18 @@ fn plan_edit(ctx: Context, reaction: Reaction) {
                 }
             }
         }
+    }
+}
+
+fn maybe_check(mut description: String, exhaustive: bool) -> String {
+    if !description.starts_with("✅").bitxor(exhaustive) {
+        description
+    } else if exhaustive {
+        let mut out = String::from("✅ ");
+        out.push_str(&description);
+        out
+    } else {
+        description.drain(..4);
+        description
     }
 }
