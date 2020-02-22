@@ -25,5 +25,6 @@ jobs:
           service_account_email: base-micro-admin@durlendiamenfes1.iam.gserviceaccount.com
           service_account_key: ${{ secrets.GCLOUD_CD }}
       - run: gcloud config set project durlendiamenfes1
+      - run: gcloud compute ssh $HOST --command='sudo systemctl stop sparky' --zone $REGION
       - run: gcloud compute scp $GITHUB_WORKSPACE/target/release/sparky $HOST:/opt/sparky/ --zone $REGION
-      - run: gcloud compute ssh $HOST --command='sudo systemctl restart sparky' --zone $REGION
+      - run: gcloud compute ssh $HOST --command='sudo systemctl start sparky' --zone $REGION
