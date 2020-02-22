@@ -1,38 +1,29 @@
+#[macro_use]
+mod macros;
+
+mod date;
+mod handler;
+mod help;
+mod shadowrun;
+mod state;
+
+use crate::handler::Handler;
+use crate::help::MY_HELP;
+use crate::shadowrun::SHADOWRUN_GROUP;
 use dotenv::dotenv;
-use serenity::client::Client;
-use serenity::framework::standard::help_commands::with_embeds;
+use serenity::client::{Client, Context};
 use serenity::framework::standard::{
-    macros::{command, group, help},
-    Args, CommandGroup, CommandResult, HelpOptions, StandardFramework,
+    macros::{command, group},
+    CommandResult, StandardFramework,
 };
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
-use serenity::prelude::{Context, EventHandler};
-use std::collections::HashSet;
 use std::env;
 
-#[group]
-#[commands(simple)]
-struct Roleplay;
-
-struct Handler;
-
-impl EventHandler for Handler {}
-
-#[help]
-fn my_help(
-    context: &mut Context,
-    msg: &Message,
-    args: Args,
-    help_options: &'static HelpOptions,
-    groups: &[&'static CommandGroup],
-    owners: HashSet<UserId>,
-) -> CommandResult {
-    with_embeds(context, msg, args, &help_options, groups, owners)
-}
+const OWNER: u64 = 190183362294579211;
 
 fn main() {
-    dotenv().ok();
+    dotenv().unwrap();
 
     let mut client = Client::new(&env::var("DISCORD_TOKEN").expect("token"), Handler)
         .expect("Error creating client");
@@ -40,9 +31,10 @@ fn main() {
         StandardFramework::new()
             .configure(|c| {
                 c.prefix("!")
-                    .owners(vec![UserId(190183362294579211)].into_iter().collect())
+                    .owners(vec![UserId(OWNER)].into_iter().collect())
             })
-            .group(&ROLEPLAY_GROUP)
+            .group(&GENERAL_GROUP)
+            .group(&SHADOWRUN_GROUP)
             .help(&MY_HELP),
     );
 
@@ -51,15 +43,17 @@ fn main() {
     }
 }
 
+#[group]
+#[commands(simple)]
+struct General;
+
 #[command]
 fn simple(ctx: &mut Context, msg: &Message) -> CommandResult {
-    if let Ok(reply) = msg
-        .channel_id
-        .send_message(&ctx, |m| m.content("Quel jour ?"))
-    {
-        for em in &["🇱", "🇦", "🇪", "🇯", "🇻", "🇸", "🇩", "🚫"] {
-            reply.react(&ctx, *em).ok();
-        }
-    }
+    msg.channel_id
+        .send_message(&ctx, |m| {
+            m.content("Quel jour ?")
+                .reactions(vec!["🇱", "🇦", "🇪", "🇯", "🇻", "🇸", "🇩", "🚫"])
+        })
+        .unwrap();
     Ok(())
 }
