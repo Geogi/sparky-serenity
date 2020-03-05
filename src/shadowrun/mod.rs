@@ -9,7 +9,7 @@ use serenity::framework::standard::macros::group;
 use serenity::model::channel::Reaction;
 use serenity::model::id::RoleId;
 
-match_id! {
+match_guild! {
 pub const RUNNER: RoleId = match {
     exylobby => 293393770941251584,
     ytp => 679702431222726715,
