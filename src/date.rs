@@ -79,19 +79,6 @@ pub fn fr_weekday_to_emote(day: Weekday) -> &'static str {
     }
 }
 
-pub fn fr_weekday_from_str(input: &str) -> Option<Weekday> {
-    match input.to_lowercase().as_str() {
-        "lundi" => Some(Weekday::Mon),
-        "mardi" => Some(Weekday::Tue),
-        "mercredi" => Some(Weekday::Wed),
-        "jeudi" => Some(Weekday::Thu),
-        "vendredi" => Some(Weekday::Fri),
-        "samedi" => Some(Weekday::Sat),
-        "dimanche" => Some(Weekday::Sun),
-        _ => None,
-    }
-}
-
 pub fn fr_weekday_from_shorthand(input: &str) -> Option<Weekday> {
     match input.to_lowercase().as_str() {
         "l" => Some(Weekday::Mon),

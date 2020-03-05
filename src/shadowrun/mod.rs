@@ -3,7 +3,7 @@ pub mod plan;
 
 use crate::error::AVoid;
 use crate::shadowrun::confirm::CONFIRM_COMMAND;
-use crate::shadowrun::plan::{plan_edit, PLAN_COMMAND};
+use crate::shadowrun::plan::{plan_react, PLAN_COMMAND};
 use serenity::client::Context;
 use serenity::framework::standard::macros::group;
 use serenity::model::channel::Reaction;
@@ -21,11 +21,11 @@ pub const RUNNER: RoleId = match {
 pub struct Shadowrun;
 
 pub fn shadowrun_reaction_add(ctx: &Context, add_reaction: &Reaction) -> AVoid {
-    plan_edit(ctx, add_reaction)?;
+    plan_react(ctx, add_reaction)?;
     Ok(())
 }
 
 pub fn shadowrun_reaction_remove(ctx: &Context, removed_reaction: &Reaction) -> AVoid {
-    plan_edit(ctx, removed_reaction)?;
+    plan_react(ctx, removed_reaction)?;
     Ok(())
 }

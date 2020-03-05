@@ -40,9 +40,7 @@ pub fn confirm(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
                 .description({
                     let mut mb = MessageBuilder::new();
                     for user in participants {
-                        mb.push("⌛")
-                        .mention(&user)
-                        .push(", ");
+                        mb.push("⌛").mention(&user).push(", ");
                     }
                     mb.push("\nLa prochaine séance aura lieu le ")
                         .push_bold(fr_weekday_to_str(date.weekday()))
@@ -66,7 +64,7 @@ pub fn confirm(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
                 })
                 .footer(|f| f.text(data))
         })
-            .reactions(vec!["✅", "🚫", "🏠", "🏚", "🚩", "🕣", "🕘", "🕤"])
+        .reactions(vec!["✅", "🚫", "🏠", "🏚", "🚩", "🕣", "🕘", "🕤"])
     })?;
     Ok(())
 }
