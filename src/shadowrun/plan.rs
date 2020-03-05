@@ -1,8 +1,8 @@
 use crate::date::{fr_day_to_str, fr_month_to_str, fr_weekday_to_emote, fr_weekday_to_str};
 use crate::error::AVoid;
 use crate::shadowrun::RUNNER;
-use crate::state::{decode, encode, Embedded};
-use crate::utils::pop_self;
+use crate::state::{encode, get_state, Embedded};
+use crate::utils::{pop_self, reaction_is_own};
 use anyhow::anyhow;
 use chrono::{Datelike, Duration, Utc};
 use inflector::Inflector;
@@ -36,24 +36,14 @@ pub fn plan(ctx: &mut Context, msg: &Message) -> CommandResult {
 }
 
 pub fn plan_react(ctx: &Context, reaction: &Reaction) -> AVoid {
+    if reaction_is_own(ctx, reaction)? {
+        return Ok(());
+    }
     let mut msg = reaction.message(ctx)?;
-    if is_sr_plan(ctx, &msg) {
+    if let Some(Embedded::EShadowrunPlan(_)) = get_state(ctx, &msg) {
         refresh(ctx, &mut msg)?;
     }
     Ok(())
-}
-
-pub fn is_sr_plan(ctx: &Context, message: &Message) -> bool {
-    if message.is_own(ctx) {
-        if let Some(embed) = message.embeds.first() {
-            if let Some(footer) = &embed.footer {
-                if let Some(Embedded::EShadowrunPlan(ShadowrunPlan)) = decode(&footer.text) {
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
 }
 
 fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {

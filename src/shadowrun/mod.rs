@@ -2,7 +2,7 @@ pub mod confirm;
 pub mod plan;
 
 use crate::error::AVoid;
-use crate::shadowrun::confirm::CONFIRM_COMMAND;
+use crate::shadowrun::confirm::{confirm_react, CONFIRM_COMMAND};
 use crate::shadowrun::plan::{plan_react, PLAN_COMMAND};
 use serenity::client::Context;
 use serenity::framework::standard::macros::group;
@@ -22,10 +22,12 @@ pub struct Shadowrun;
 
 pub fn shadowrun_reaction_add(ctx: &Context, add_reaction: &Reaction) -> AVoid {
     plan_react(ctx, add_reaction)?;
+    confirm_react(ctx, add_reaction)?;
     Ok(())
 }
 
 pub fn shadowrun_reaction_remove(ctx: &Context, removed_reaction: &Reaction) -> AVoid {
     plan_react(ctx, removed_reaction)?;
+    confirm_react(ctx, removed_reaction)?;
     Ok(())
 }
