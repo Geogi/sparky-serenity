@@ -1,12 +1,14 @@
-use crate::date::{fr_weekday_from_shorthand, fr_weekday_to_emote, fr_weekday_to_str};
+use crate::date::{
+    fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote,
+    fr_weekday_to_str,
+};
 use crate::error::ARes;
 use crate::shadowrun::plan::is_sr_plan;
 use crate::shadowrun::RUNNER;
 use crate::state::{encode, Embedded};
 use crate::utils::pop_self;
 use anyhow::{anyhow, bail};
-use chrono::Weekday;
-use inflector::Inflector;
+use chrono::{Date, Datelike, Utc, Weekday};
 use serde::{Deserialize, Serialize};
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
@@ -14,9 +16,12 @@ use serenity::framework::standard::{Args, CommandResult};
 use serenity::model::channel::Message;
 use serenity::model::channel::ReactionType::Unicode;
 use serenity::model::guild::Role;
+use serenity::model::id::UserId;
 use serenity::model::user::User;
 use serenity::utils::MessageBuilder;
 use std::ops::Deref;
+
+const DEFAULT_HOST: UserId = UserId(190183362294579211);
 
 #[command]
 #[num_args(1)]
@@ -39,12 +44,21 @@ pub fn confirm(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
                         mb.push(", ");
                     }
                     mb.push("la prochaine séance aura lieu le ")
-                        .push(date)
-                        .push(".");
+                        .push(fr_weekday_to_str(date.weekday()))
+                        .push(" ")
+                        .push(fr_day_to_str(date))
+                        .push(" ")
+                        .push(fr_month_to_str(date))
+                        .push(" à 20h chez ")
+                        .mention(&DEFAULT_HOST)
+                        .push(".\nMerci de : ✅ confirmer 🚫 annuler.\nAccueil : 🏠 possible 🏚 impossible 🚩 demandé ")
+                        .push_italic("(cf. règles)")
+                        .push(".\nDécaler l’horaire : 🕣 20h30 🕘 21h 🕤 21h30.");
                     mb
                 })
                 .footer(|f| f.text(data))
         })
+            .reactions(vec!["✅", "🚫", "🏠", "🏚", "🚩", "🕣", "🕘", "🕤"])
     })?;
     Ok(())
 }
@@ -65,7 +79,7 @@ fn read_participants_date(
     ctx: &Context,
     plan: &Message,
     day: Weekday,
-) -> ARes<(Vec<User>, String)> {
+) -> ARes<(Vec<User>, Date<Utc>)> {
     let mut participants = plan.reaction_users(
         ctx,
         Unicode(fr_weekday_to_emote(day).to_owned()),
@@ -73,18 +87,9 @@ fn read_participants_date(
         None,
     )?;
     pop_self(ctx, &mut participants)?;
-    let date = plan
-        .embeds
-        .first()
-        .ok_or(anyhow!("no embed, should be unreachable"))?
-        .fields
-        .iter()
-        .find(|f| {
-            f.name
-                .starts_with(&fr_weekday_to_str(day).to_sentence_case())
-        })
-        .ok_or(anyhow!("no matching date, should be unreachable"))?
-        .name
-        .clone();
+    let mut date = plan.timestamp.with_timezone(&Utc).date();
+    while date.weekday() != day {
+        date = date.succ();
+    }
     Ok((participants, date))
 }

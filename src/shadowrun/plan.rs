@@ -37,7 +37,7 @@ pub fn plan(ctx: &mut Context, msg: &Message) -> CommandResult {
                     MessageBuilder::new()
                         .mention(&runner)
                         .push(", vos disponibilités jusqu'au ")
-                        .push(last_day.day())
+                        .push(fr_day_to_str(last_day))
                         .push(" ")
                         .push(fr_month_to_str(last_day))
                         .push("."),
