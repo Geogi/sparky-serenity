@@ -1171,7 +1171,7 @@ checksum = "5c2fb2ec9bcd216a5b0d0ccf31ab17b5ed1d627960edff65bbe95d3ce221cefc"
 
 [[package]]
 name = "sparky"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "Inflector",
  "anyhow",
