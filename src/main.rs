@@ -31,20 +31,26 @@ use std::sync::Arc;
 
 const OWNER: u64 = 190183362294579211;
 
+match_guild! {
+const PREFIX: &str = match {
+    exylobby => "!",
+    ytp => "?",
+}}
+
 struct ManagerKey;
 impl TypeMapKey for ManagerKey {
     type Value = Arc<Mutex<ShardManager>>;
 }
 
 fn main() -> AVoid {
-    env_logger::init();
     dotenv()?;
+    env_logger::init();
 
     let mut client = Client::new(&env::var("DISCORD_TOKEN")?, Handler)?;
     client.with_framework(
         StandardFramework::new()
             .configure(|c| {
-                c.prefix("!").owners({
+                c.prefix(PREFIX).owners({
                     let mut owners = HashSet::new();
                     owners.insert(UserId(OWNER));
                     owners
