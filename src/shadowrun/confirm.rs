@@ -40,20 +40,28 @@ pub fn confirm(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
                 .description({
                     let mut mb = MessageBuilder::new();
                     for user in participants {
-                        mb.mention(&user);
-                        mb.push(", ");
+                        mb.push("⌛")
+                        .mention(&user)
+                        .push(", ");
                     }
-                    mb.push("la prochaine séance aura lieu le ")
-                        .push(fr_weekday_to_str(date.weekday()))
+                    mb.push("\nLa prochaine séance aura lieu le ")
+                        .push_bold(fr_weekday_to_str(date.weekday()))
                         .push(" ")
-                        .push(fr_day_to_str(date))
+                        .push_bold(fr_day_to_str(date))
                         .push(" ")
-                        .push(fr_month_to_str(date))
-                        .push(" à 20h chez ")
+                        .push_bold(fr_month_to_str(date))
+                        .push(" à ")
+                        .push_bold("20h")
+                        .push(" chez ")
                         .mention(&DEFAULT_HOST)
-                        .push(".\nMerci de : ✅ confirmer 🚫 annuler.\nAccueil : 🏠 possible 🏚 impossible 🚩 demandé ")
+                        .push(".\nMerci de : ")
+                        .push_bold("✅ confirmer 🚫 annuler")
+                        .push(".\nAccueil : ")
+                        .push_bold("🏠 possible 🏚 impossible 🚩 demandé ")
                         .push_italic("(cf. règles)")
-                        .push(".\nDécaler l’horaire : 🕣 20h30 🕘 21h 🕤 21h30.");
+                        .push(".\nDécaler l’horaire : ")
+                        .push_bold("🕣 20h30 🕘 21h 🕤 21h30")
+                        .push(".");
                     mb
                 })
                 .footer(|f| f.text(data))
