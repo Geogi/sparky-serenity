@@ -1,6 +1,6 @@
 use chrono::{Date, Datelike, Utc, Weekday};
 
-pub fn fr_month(date: Date<Utc>) -> &'static str {
+pub fn fr_month_to_str(date: Date<Utc>) -> &'static str {
     match date.month() {
         1 => "janvier",
         2 => "février",
@@ -18,8 +18,8 @@ pub fn fr_month(date: Date<Utc>) -> &'static str {
     }
 }
 
-pub fn fr_weekday(date: Date<Utc>) -> &'static str {
-    match date.weekday() {
+pub fn fr_weekday_to_str(day: Weekday) -> &'static str {
+    match day {
         Weekday::Mon => "lundi",
         Weekday::Tue => "mardi",
         Weekday::Wed => "mercredi",
@@ -30,7 +30,7 @@ pub fn fr_weekday(date: Date<Utc>) -> &'static str {
     }
 }
 
-pub fn fr_day(date: Date<Utc>) -> &'static str {
+pub fn fr_day_to_str(date: Date<Utc>) -> &'static str {
     match date.day() {
         1 => "1er",
         2 => "2",
@@ -67,7 +67,7 @@ pub fn fr_day(date: Date<Utc>) -> &'static str {
     }
 }
 
-pub fn weekday_emote(day: Weekday) -> &'static str {
+pub fn fr_weekday_to_emote(day: Weekday) -> &'static str {
     match day {
         Weekday::Mon => "🇱",
         Weekday::Tue => "🇦",
@@ -79,7 +79,7 @@ pub fn weekday_emote(day: Weekday) -> &'static str {
     }
 }
 
-pub fn weekday_from_fr(input: &str) -> Option<Weekday> {
+pub fn fr_weekday_from_str(input: &str) -> Option<Weekday> {
     match input.to_lowercase().as_str() {
         "lundi" => Some(Weekday::Mon),
         "mardi" => Some(Weekday::Tue),
@@ -88,6 +88,19 @@ pub fn weekday_from_fr(input: &str) -> Option<Weekday> {
         "vendredi" => Some(Weekday::Fri),
         "samedi" => Some(Weekday::Sat),
         "dimanche" => Some(Weekday::Sun),
+        _ => None,
+    }
+}
+
+pub fn fr_weekday_from_shorthand(input: &str) -> Option<Weekday> {
+    match input.to_lowercase().as_str() {
+        "l" => Some(Weekday::Mon),
+        "a" => Some(Weekday::Tue),
+        "e" => Some(Weekday::Wed),
+        "j" => Some(Weekday::Thu),
+        "v" => Some(Weekday::Fri),
+        "s" => Some(Weekday::Sat),
+        "d" => Some(Weekday::Sun),
         _ => None,
     }
 }

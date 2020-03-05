@@ -6,6 +6,7 @@ mod handler;
 mod help;
 mod shadowrun;
 mod state;
+mod utils;
 
 use crate::handler::Handler;
 use crate::help::MY_HELP;
@@ -49,11 +50,9 @@ struct General;
 
 #[command]
 fn simple(ctx: &mut Context, msg: &Message) -> CommandResult {
-    msg.channel_id
-        .send_message(&ctx, |m| {
-            m.content("Quel jour ?")
-                .reactions(vec!["🇱", "🇦", "🇪", "🇯", "🇻", "🇸", "🇩", "🚫"])
-        })
-        .unwrap();
+    msg.channel_id.send_message(&ctx, |m| {
+        m.content("Quel jour ?")
+            .reactions(vec!["🇱", "🇦", "🇪", "🇯", "🇻", "🇸", "🇩", "🚫"])
+    })?;
     Ok(())
 }
