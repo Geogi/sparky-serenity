@@ -20,9 +20,9 @@ use serenity::model::channel::{Message, Reaction};
 use serenity::model::guild::Role;
 use serenity::model::id::UserId;
 use serenity::model::user::User;
-use serenity::utils::{MessageBuilder};
+use serenity::utils::MessageBuilder;
 use std::collections::HashMap;
-use std::ops::{Deref};
+use std::ops::Deref;
 
 const DEFAULT_HOST: UserId = UserId(190183362294579211);
 const HOST_PRIORITY: &[UserId] = &[
