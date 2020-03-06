@@ -16,6 +16,7 @@ use crate::help::MY_HELP;
 use crate::shadowrun::SHADOWRUN_GROUP;
 use anyhow::anyhow;
 use dotenv::dotenv;
+use log::info;
 use serenity::client::bridge::gateway::ShardManager;
 use serenity::client::{Client, Context};
 use serenity::framework::standard::{
@@ -63,6 +64,12 @@ fn main() -> AVoid {
             .group(&SHADOWRUN_GROUP)
             .help(&MY_HELP),
     );
+
+    let interrupt_manager = client.shard_manager.clone();
+    ctrlc::set_handler(move || {
+        info!("received termination signal");
+        interrupt_manager.lock().shutdown_all();
+    })?;
 
     client
         .data
