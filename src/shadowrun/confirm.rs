@@ -88,19 +88,17 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         );
     }
     let rus = |em: &str| -> ARes<Vec<User>> {
-        Ok(msg.reaction_users(ctx, Unicode(em.to_owned()), None, None)?)
+        let mut users = msg.reaction_users(ctx, Unicode(em.to_owned()), None, None)?;
+        pop_self(ctx, &mut users)?;
+        Ok(users)
     };
     for confirming in rus("✅")? {
-        participants.modify(
+        participants.insert(
             confirming.id,
-            |ConfirmInfo {
-                 attendance: _,
-                 hosting,
-                 time,
-             }| ConfirmInfo {
+            ConfirmInfo {
                 attendance: Attendance::Confirmed,
-                hosting,
-                time,
+                hosting: Hosting::Unspecified,
+                time: GameTime::Eight,
             },
         );
     }
