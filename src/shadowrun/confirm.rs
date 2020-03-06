@@ -5,7 +5,7 @@ use crate::date::{
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{ARes, AVoid};
 use crate::shadowrun::RUNNER;
-use crate::state::get_state;
+use crate::state::extract;
 use crate::state::{encode, Embedded};
 use crate::utils::MapExt;
 use anyhow::{anyhow, bail};
@@ -22,7 +22,6 @@ use serenity::model::id::UserId;
 use serenity::model::user::User;
 use serenity::utils::MessageBuilder;
 use std::collections::HashMap;
-use std::ops::Deref;
 
 const DEFAULT_HOST: UserId = UserId(190183362294579211);
 const HOST_PRIORITY: &[UserId] = &[
@@ -34,15 +33,15 @@ const HOST_PRIORITY: &[UserId] = &[
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ShadowrunConfirm {
-    date_timestamp: i64,
-    participants_raw_ids: Vec<u64>,
+    pub date_timestamp: i64,
+    pub participants_raw_ids: Vec<u64>,
 }
 
 #[command]
 #[num_args(1)]
 pub fn confirm(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let ctx = ctx.deref();
-    let plan = get_last_plan(ctx, msg)?;
+    let ctx = &*ctx;
+    let plan = last_plan(ctx, msg)?;
     let day = fr_weekday_from_shorthand(&args.single::<String>()?)
         .ok_or(anyhow!("cannot parse weekday"))?;
     let (participants, date) = read_participants_date(ctx, &plan, day)?;
@@ -63,7 +62,7 @@ pub fn confirm_react(ctx: &Context, reaction: &Reaction) -> AVoid {
         return Ok(());
     }
     let mut msg = reaction.message(ctx)?;
-    if let Some(Embedded::EShadowrunConfirm(data)) = get_state(ctx, &msg) {
+    if let Some(Embedded::EShadowrunConfirm(data)) = extract(ctx, &msg) {
         refresh(ctx, &mut msg, data)?;
     }
     Ok(())
@@ -281,9 +280,9 @@ enum GameTime {
     NineThirty,
 }
 
-fn get_last_plan(ctx: &Context, base: &Message) -> ARes<Message> {
+fn last_plan(ctx: &Context, base: &Message) -> ARes<Message> {
     for msg in base.channel_id.messages(ctx, |r| r.before(base.id))? {
-        if let Some(Embedded::EShadowrunPlan(_)) = get_state(ctx, &msg) {
+        if let Some(Embedded::EShadowrunPlan(_)) = extract(ctx, &msg) {
             return Ok(msg);
         }
     }

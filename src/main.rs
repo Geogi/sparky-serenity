@@ -28,7 +28,6 @@ use serenity::model::id::UserId;
 use serenity::prelude::{Mutex, TypeMapKey};
 use std::collections::HashSet;
 use std::env;
-use std::ops::Deref;
 use std::sync::Arc;
 
 const OWNER: u64 = 190183362294579211;
@@ -87,7 +86,7 @@ struct General;
 
 #[command]
 fn simple(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let ctx = ctx.deref();
+    let ctx = &*ctx;
     msg.channel_id.send_message(ctx, |m| {
         m.content("Quel jour ?")
             .reactions(vec!["🇱", "🇦", "🇪", "🇯", "🇻", "🇸", "🇩", "🚫"])
@@ -103,7 +102,7 @@ struct Admin;
 
 #[command]
 fn stop(ctx: &mut Context) -> CommandResult {
-    let ctx = ctx.deref();
+    let ctx = &*ctx;
     let data = ctx.data.read();
     let manager = data
         .get::<ManagerKey>()

@@ -1,8 +1,8 @@
 use crate::date::{fr_day_to_str, fr_month_to_str, fr_weekday_to_emote, fr_weekday_to_str};
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::AVoid;
-use crate::shadowrun::RUNNER;
-use crate::state::{encode, get_state, Embedded};
+use crate::shadowrun::{runners, RUNNER};
+use crate::state::{encode, extract, Embedded};
 use anyhow::anyhow;
 use chrono::{Datelike, Duration, Utc};
 use inflector::Inflector;
@@ -15,14 +15,13 @@ use serenity::model::channel::{Message, Reaction};
 use serenity::model::guild::Role;
 use serenity::utils::MessageBuilder;
 use std::collections::HashSet;
-use std::ops::Deref;
 
 #[derive(Serialize, Deserialize)]
 pub struct ShadowrunPlan;
 
 #[command]
 pub fn plan(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let ctx = ctx.deref();
+    let ctx = &*ctx;
     let first_day = msg.timestamp.with_timezone(&Utc).date();
     let mut base = msg.channel_id.send_message(ctx, |m| {
         m.embed(|e| e.description("En préparation...")).reactions(
@@ -40,7 +39,7 @@ pub fn plan_react(ctx: &Context, reaction: &Reaction) -> AVoid {
         return Ok(());
     }
     let mut msg = reaction.message(ctx)?;
-    if let Some(Embedded::EShadowrunPlan(_)) = get_state(ctx, &msg) {
+    if let Some(Embedded::EShadowrunPlan(_)) = extract(ctx, &msg) {
         refresh(ctx, &mut msg)?;
     }
     Ok(())
@@ -77,15 +76,8 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
     for user in msg.reaction_users(ctx, Unicode("🚫".to_owned()), None, None)? {
         voted.insert(user.id);
     }
-    let guild = guild.read();
-    let mut runners = guild.members.iter().filter_map(|(id, member)| {
-        if member.roles.contains(&RUNNER) {
-            Some(id)
-        } else {
-            None
-        }
-    });
-    let exhaustive = runners.all(|id| voted.contains(id));
+    let runners = runners(ctx)?;
+    let exhaustive = runners.iter().all(|id| voted.contains(id));
     let data = encode(Embedded::EShadowrunPlan(ShadowrunPlan))?;
     msg.edit(ctx, |m| {
         m.embed(|e| {

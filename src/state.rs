@@ -53,7 +53,7 @@ pub fn decode(input: &str) -> Option<Embedded> {
     return None;
 }
 
-pub fn get_state(ctx: &Context, message: &Message) -> Option<Embedded> {
+pub fn extract(ctx: &Context, message: &Message) -> Option<Embedded> {
     if message.is_own(ctx) {
         if let Some(embed) = message.embeds.first() {
             if let Some(footer) = &embed.footer {
