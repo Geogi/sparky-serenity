@@ -8,6 +8,8 @@ use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use serde::{Deserialize, Serialize};
+use serenity::client::Context;
+use serenity::model::channel::Message;
 use std::io::{Read, Write};
 
 const CHUNK_LEN: usize = 60;
@@ -44,7 +46,19 @@ pub fn decode(input: &str) -> Option<Embedded> {
         let mut un_snap = GzDecoder::new(un_base.as_slice());
         let mut buf = vec![];
         if let Ok(_) = un_snap.read_to_end(&mut buf) {
-            return deserialize::<Embedded>(&buf).ok();
+            let a = deserialize::<Embedded>(&buf);
+            return a.ok();
+        }
+    }
+    return None;
+}
+
+pub fn get_state(ctx: &Context, message: &Message) -> Option<Embedded> {
+    if message.is_own(ctx) {
+        if let Some(embed) = message.embeds.first() {
+            if let Some(footer) = &embed.footer {
+                return decode(&footer.text);
+            }
         }
     }
     return None;

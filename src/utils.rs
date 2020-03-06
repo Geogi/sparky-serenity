@@ -1,9 +1,32 @@
-use crate::error::AVoid;
-use serenity::client::Context;
-use serenity::model::user::User;
+use std::borrow::Borrow;
+use std::collections::HashMap;
+use std::hash::Hash;
 
-pub fn pop_self(ctx: &Context, users: &mut Vec<User>) -> AVoid {
-    let self_id = ctx.http.get_current_user()?.id;
-    users.retain(|user| user.id != self_id);
-    Ok(())
+pub trait MapExt<K, V> {
+    fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq;
+    fn insert(&mut self, k: K, v: V) -> Option<V>;
+    fn modify<Q: ?Sized>(&mut self, k: K, f: fn(V) -> V)
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        self.remove(k.borrow()).map(f).map(|v| self.insert(k, v));
+    }
+}
+
+impl<K: Hash + Eq, V> MapExt<K, V> for HashMap<K, V> {
+    fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        HashMap::remove(self, k)
+    }
+
+    fn insert(&mut self, k: K, v: V) -> Option<V> {
+        HashMap::insert(self, k, v)
+    }
 }
