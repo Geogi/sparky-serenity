@@ -2,6 +2,7 @@
 mod macros;
 
 mod date;
+mod discord;
 mod error;
 mod handler;
 mod help;

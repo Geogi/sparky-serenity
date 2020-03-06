@@ -1,8 +1,8 @@
 use crate::date::{fr_day_to_str, fr_month_to_str, fr_weekday_to_emote, fr_weekday_to_str};
+use crate::discord::{pop_self, reaction_is_own};
 use crate::error::AVoid;
 use crate::shadowrun::RUNNER;
 use crate::state::{encode, get_state, Embedded};
-use crate::utils::{pop_self, reaction_is_own};
 use anyhow::anyhow;
 use chrono::{Datelike, Duration, Utc};
 use inflector::Inflector;

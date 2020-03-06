@@ -2,14 +2,15 @@ use crate::date::{
     fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote,
     fr_weekday_to_str,
 };
+use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{ARes, AVoid};
 use crate::shadowrun::RUNNER;
 use crate::state::get_state;
 use crate::state::{encode, Embedded};
-use crate::utils::{pop_self, reaction_is_own};
+use crate::utils::MapExt;
 use anyhow::{anyhow, bail};
-use chrono::{Date, Datelike, NaiveTime, TimeZone, Utc, Weekday};
-use lazy_static::lazy_static;
+use boolinator::Boolinator;
+use chrono::{Date, Datelike, TimeZone, Utc, Weekday};
 use serde::{Deserialize, Serialize};
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
@@ -19,16 +20,19 @@ use serenity::model::channel::{Message, Reaction};
 use serenity::model::guild::Role;
 use serenity::model::id::UserId;
 use serenity::model::user::User;
-use serenity::utils::MessageBuilder;
+use serenity::utils::{MessageBuilder};
 use std::collections::HashMap;
-use std::ops::Deref;
+use std::ops::{Deref};
 
 const DEFAULT_HOST: UserId = UserId(190183362294579211);
-lazy_static! {
-    static ref NOON: NaiveTime = NaiveTime::from_hms(0, 0, 0);
-}
+const HOST_PRIORITY: &[UserId] = &[
+    UserId(285875416860983306),
+    UserId(172786235171930113),
+    UserId(362692048039444492),
+    UserId(136938893432848385),
+];
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ShadowrunConfirm {
     date_timestamp: i64,
     participants_raw_ids: Vec<u64>,
@@ -43,10 +47,7 @@ pub fn confirm(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
         .ok_or(anyhow!("cannot parse weekday"))?;
     let (participants, date) = read_participants_date(ctx, &plan, day)?;
     let data = ShadowrunConfirm {
-        date_timestamp: date
-            .and_time(*NOON)
-            .ok_or("cannot build datetime")?
-            .timestamp(),
+        date_timestamp: date.and_hms(12, 0, 0).timestamp(),
         participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
     };
     let mut msg = msg.channel_id.send_message(ctx, |m| {
@@ -73,7 +74,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
     let ShadowrunConfirm {
         date_timestamp,
         participants_raw_ids: participants_ids,
-    } = data;
+    } = data.clone();
     let date = Utc.timestamp(date_timestamp, 0).date();
     let mut participants = HashMap::new();
     for user_id_raw in &participants_ids {
@@ -86,12 +87,108 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
             },
         );
     }
-    let data = encode(Embedded::EShadowrunConfirm(ShadowrunConfirm {
-        date_timestamp,
-        participants_raw_ids: participants_ids,
-    }))?;
-    let time = earliest(ctx, msg)?;
-    let host = host_priority
+    let rus = |em: &str| -> ARes<Vec<User>> {
+        Ok(msg.reaction_users(ctx, Unicode(em.to_owned()), None, None)?)
+    };
+    for confirming in rus("✅")? {
+        participants.modify(
+            confirming.id,
+            |ConfirmInfo {
+                 attendance: _,
+                 hosting,
+                 time,
+             }| ConfirmInfo {
+                attendance: Attendance::Confirmed,
+                hosting,
+                time,
+            },
+        );
+    }
+    for cancelling in rus("🚫")? {
+        participants.modify(
+            cancelling.id,
+            |ConfirmInfo {
+                 attendance: _,
+                 hosting,
+                 time,
+             }| ConfirmInfo {
+                attendance: Attendance::Cancelled,
+                hosting,
+                time,
+            },
+        );
+    }
+    for granting in rus("🏠")? {
+        participants.modify(
+            granting.id,
+            |ConfirmInfo {
+                 attendance,
+                 hosting: _,
+                 time,
+             }| ConfirmInfo {
+                attendance,
+                hosting: Hosting::Granted,
+                time,
+            },
+        );
+    }
+    for demanding in rus("🚩")? {
+        participants.modify(
+            demanding.id,
+            |ConfirmInfo {
+                 attendance,
+                 hosting: _,
+                 time,
+             }| ConfirmInfo {
+                attendance,
+                hosting: Hosting::Demanded,
+                time,
+            },
+        );
+    }
+    for demanding in rus("🕣")? {
+        participants.modify(
+            demanding.id,
+            |ConfirmInfo {
+                 attendance,
+                 hosting,
+                 time: _,
+             }| ConfirmInfo {
+                attendance,
+                hosting,
+                time: GameTime::EightThirty,
+            },
+        );
+    }
+    for demanding in rus("🕘")? {
+        participants.modify(
+            demanding.id,
+            |ConfirmInfo {
+                 attendance,
+                 hosting,
+                 time: _,
+             }| ConfirmInfo {
+                attendance,
+                hosting,
+                time: GameTime::Nine,
+            },
+        );
+    }
+    for demanding in rus("🕤")? {
+        participants.modify(
+            demanding.id,
+            |ConfirmInfo {
+                 attendance,
+                 hosting,
+                 time: _,
+             }| ConfirmInfo {
+                attendance,
+                hosting,
+                time: GameTime::NineThirty,
+            },
+        );
+    }
+    let data = encode(Embedded::EShadowrunConfirm(data))?;
     msg.edit(ctx, |m| {
         m.embed(|e| {
             e.title("Shadowrun – Confirmation")
@@ -113,9 +210,9 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                         .push(" ")
                         .push_bold(fr_month_to_str(date))
                         .push(" à ")
-                        .push_bold(time)
+                        .push_bold(earliest(&participants))
                         .push(" chez ")
-                        .mention(&host_rules(&participants))
+                        .mention(host_priority(&participants))
                         .push(".\nMerci de : ")
                         .push_bold("✅ confirmer 🚫 annuler")
                         .push(".\nAccueil : ")
@@ -131,16 +228,31 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
     Ok(())
 }
 
-fn earliest(ctx: &Context, msg: &Message) -> ARes<&'static str> {
-    for (emote, string) in &[("🕤", "21h30"), ("🕘", "21h"), ("🕣", "20h30")] {
-        let mut reactions =
-            msg.reaction_users(ctx, Unicode(emote.to_owned().to_owned()), None, None)?;
-        pop_self(ctx, &mut reactions)?;
-        if !reactions.is_empty() {
-            return Ok(string);
+fn earliest(participants: &HashMap<UserId, ConfirmInfo>) -> &'static str {
+    match participants
+        .iter()
+        .filter_map(|(_, info)| (info.attendance == Attendance::Confirmed).as_some(info.time))
+        .max()
+    {
+        Some(GameTime::NineThirty) => "21h30",
+        Some(GameTime::Nine) => "21h",
+        Some(GameTime::EightThirty) => "20h30",
+        _ => "20h",
+    }
+}
+
+fn host_priority(participants: &HashMap<UserId, ConfirmInfo>) -> &UserId {
+    for offer in &[Hosting::Demanded, Hosting::Granted] {
+        let mut hosts = participants.iter().filter_map(|(id, info)| {
+            (info.attendance == Attendance::Confirmed && &info.hosting == offer).as_some(id)
+        });
+        for priority_host in HOST_PRIORITY {
+            if let Some(host) = hosts.find(|&h| h == priority_host) {
+                return host;
+            }
         }
     }
-    Ok("20h")
+    &DEFAULT_HOST
 }
 
 struct ConfirmInfo {
@@ -149,18 +261,21 @@ struct ConfirmInfo {
     time: GameTime,
 }
 
+#[derive(PartialEq)]
 enum Attendance {
     Confirmed,
     Cancelled,
     Pending,
 }
 
+#[derive(PartialEq)]
 enum Hosting {
-    Priority,
-    Granted,
     Unspecified,
+    Granted,
+    Demanded,
 }
 
+#[derive(Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
 enum GameTime {
     Eight,
     EightThirty,
