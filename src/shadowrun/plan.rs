@@ -100,10 +100,10 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
                     }
                     mb.mention(&runner)
                         .push(", vos disponibilités jusqu'au ")
-                        .push(fr_day_to_str(last_day))
+                        .push_bold(fr_day_to_str(last_day))
                         .push(" ")
-                        .push(fr_month_to_str(last_day))
-                        .push(".");
+                        .push_bold(fr_month_to_str(last_day))
+                        .push(".\nPensez à 🚫 si pas de disponibilité de la semaine.");
                     mb
                 })
                 .fields((0..=6).map(|inc| {
