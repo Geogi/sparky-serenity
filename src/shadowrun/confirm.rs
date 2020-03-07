@@ -240,11 +240,11 @@ fn earliest(participants: &HashMap<UserId, ConfirmInfo>) -> &'static str {
 
 fn host_priority(participants: &HashMap<UserId, ConfirmInfo>) -> &UserId {
     for offer in &[Hosting::Demanded, Hosting::Granted] {
-        let mut hosts = participants.iter().filter_map(|(id, info)| {
+        let hosts = participants.iter().filter_map(|(id, info)| {
             (info.attendance == Attendance::Confirmed && &info.hosting == offer).as_some(id)
         });
         for priority_host in HOST_PRIORITY {
-            if let Some(host) = hosts.find(|&h| h == priority_host) {
+            if let Some(host) = hosts.clone().find(|&h| h == priority_host) {
                 return host;
             }
         }
