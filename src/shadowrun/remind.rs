@@ -76,6 +76,7 @@ fn last_poll(ctx: &Context, base: &Message) -> ARes<Poll> {
             });
         }
     }
+    base.reply(ctx, "je n’ai pas trouvé le dernier sondage.")?;
     bail!("could not find plan message")
 }
 

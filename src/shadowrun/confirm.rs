@@ -286,6 +286,7 @@ fn last_plan(ctx: &Context, base: &Message) -> ARes<Message> {
             return Ok(msg);
         }
     }
+    base.reply(ctx, "je n’ai pas trouvé le dernier planning.")?;
     bail!("could not find plan message")
 }
 
