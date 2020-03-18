@@ -37,11 +37,13 @@ pub fn shadowrun_reaction_remove(ctx: &Context, removed_reaction: &Reaction) -> 
 }
 
 pub fn runners(ctx: &Context) -> ARes<Vec<UserId>> {
-    let runner: Role = RUNNER.to_role_cached(ctx).ok_or(anyhow!("no role"))?;
+    let runner: Role = RUNNER
+        .to_role_cached(ctx)
+        .ok_or_else(|| anyhow!("no role"))?;
     let guild = runner
         .find_guild(ctx)?
         .to_guild_cached(ctx)
-        .ok_or(anyhow!("cannot read guild"))?;
+        .ok_or_else(|| anyhow!("cannot read guild"))?;
     let guild = guild.read();
     let runners = guild.members.iter().filter_map(|(id, member)| {
         if member.roles.contains(&RUNNER) {

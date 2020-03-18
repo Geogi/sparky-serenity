@@ -30,6 +30,7 @@ use std::collections::HashSet;
 use std::env;
 use std::sync::Arc;
 
+#[allow(clippy::unreadable_literal)]
 const OWNER: u64 = 190183362294579211;
 
 match_guild! {
@@ -106,7 +107,7 @@ fn stop(ctx: &mut Context) -> CommandResult {
     let data = ctx.data.read();
     let manager = data
         .get::<ManagerKey>()
-        .ok_or(anyhow!("manager not in data"))?;
+        .ok_or_else(|| anyhow!("manager not in data"))?;
     manager.lock().shutdown_all();
     Ok(())
 }

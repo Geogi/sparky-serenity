@@ -46,15 +46,20 @@ pub fn plan_react(ctx: &Context, reaction: &Reaction) -> AVoid {
 }
 
 fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
-    let runner: Role = RUNNER.to_role_cached(ctx).ok_or(anyhow!("no role"))?;
+    let runner: Role = RUNNER
+        .to_role_cached(ctx)
+        .ok_or_else(|| anyhow!("no role"))?;
     let first_day = msg.timestamp.with_timezone(&Utc).date();
     let last_day = first_day + Duration::days(6);
     let chan = msg
         .channel_id
         .to_channel(ctx)?
         .guild()
-        .ok_or(anyhow!("cannot get chan"))?;
-    let guild = chan.read().guild(ctx).ok_or(anyhow!("cannot get guild"))?;
+        .ok_or_else(|| anyhow!("cannot get chan"))?;
+    let guild = chan
+        .read()
+        .guild(ctx)
+        .ok_or_else(|| anyhow!("cannot get guild"))?;
     let guild_id = guild.read().id;
     let mut available = vec![];
     let mut voted = HashSet::new();
@@ -113,7 +118,8 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
                             } else {
                                 list.iter()
                                     .map(|user| {
-                                        user.nick_in(ctx, guild_id).unwrap_or(user.name.clone())
+                                        user.nick_in(ctx, guild_id)
+                                            .unwrap_or_else(|| user.name.clone())
                                     })
                                     .collect::<Vec<String>>()
                                     .join("\n")

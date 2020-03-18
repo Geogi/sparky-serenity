@@ -23,7 +23,9 @@ use serenity::model::user::User;
 use serenity::utils::MessageBuilder;
 use std::collections::HashMap;
 
+#[allow(clippy::unreadable_literal)]
 const DEFAULT_HOST: UserId = UserId(190183362294579211);
+#[allow(clippy::unreadable_literal)]
 const HOST_PRIORITY: &[UserId] = &[
     UserId(285875416860983306),
     UserId(172786235171930113),
@@ -43,7 +45,7 @@ pub fn confirm(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
     let ctx = &*ctx;
     let plan = last_plan(ctx, msg)?;
     let day = fr_weekday_from_shorthand(&args.single::<String>()?)
-        .ok_or(anyhow!("cannot parse weekday"))?;
+        .ok_or_else(|| anyhow!("cannot parse weekday"))?;
     let (participants, date) = read_participants_date(ctx, &plan, day)?;
     let data = ShadowrunConfirm {
         date_timestamp: date.and_hms(12, 0, 0).timestamp(),
@@ -69,7 +71,9 @@ pub fn confirm_react(ctx: &Context, reaction: &Reaction) -> AVoid {
 }
 
 fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
-    let runner: Role = RUNNER.to_role_cached(ctx).ok_or_else(|| anyhow!("no role"))?;
+    let runner: Role = RUNNER
+        .to_role_cached(ctx)
+        .ok_or_else(|| anyhow!("no role"))?;
     let ShadowrunConfirm {
         date_timestamp,
         participants_raw_ids: participants_ids,
@@ -102,26 +106,19 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         );
     }
     for cancelling in rus("🚫")? {
-        participants.modify(
-            cancelling.id,
-            |ConfirmInfo {
-                 attendance: _,
-                 hosting,
-                 time,
-             }| ConfirmInfo {
+        participants.modify(cancelling.id, |ConfirmInfo { hosting, time, .. }| {
+            ConfirmInfo {
                 attendance: Attendance::Cancelled,
                 hosting,
                 time,
-            },
-        );
+            }
+        });
     }
     for granting in rus("🏠")? {
         participants.modify(
             granting.id,
             |ConfirmInfo {
-                 attendance,
-                 hosting: _,
-                 time,
+                 attendance, time, ..
              }| ConfirmInfo {
                 attendance,
                 hosting: Hosting::Granted,
@@ -133,9 +130,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         participants.modify(
             demanding.id,
             |ConfirmInfo {
-                 attendance,
-                 hosting: _,
-                 time,
+                 attendance, time, ..
              }| ConfirmInfo {
                 attendance,
                 hosting: Hosting::Demanded,
@@ -149,7 +144,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
             |ConfirmInfo {
                  attendance,
                  hosting,
-                 time: _,
+                 ..
              }| ConfirmInfo {
                 attendance,
                 hosting,
@@ -163,7 +158,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
             |ConfirmInfo {
                  attendance,
                  hosting,
-                 time: _,
+                 ..
              }| ConfirmInfo {
                 attendance,
                 hosting,
@@ -177,7 +172,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
             |ConfirmInfo {
                  attendance,
                  hosting,
-                 time: _,
+                 ..
              }| ConfirmInfo {
                 attendance,
                 hosting,

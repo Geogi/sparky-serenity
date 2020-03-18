@@ -45,12 +45,12 @@ pub fn decode(input: &str) -> Option<Embedded> {
     if let Ok(un_base) = base64::decode(&no_split) {
         let mut un_snap = GzDecoder::new(un_base.as_slice());
         let mut buf = vec![];
-        if let Ok(_) = un_snap.read_to_end(&mut buf) {
+        if un_snap.read_to_end(&mut buf).is_ok() {
             let a = deserialize::<Embedded>(&buf);
             return a.ok();
         }
     }
-    return None;
+    None
 }
 
 pub fn extract(ctx: &Context, message: &Message) -> Option<Embedded> {
@@ -61,5 +61,5 @@ pub fn extract(ctx: &Context, message: &Message) -> Option<Embedded> {
             }
         }
     }
-    return None;
+    None
 }
