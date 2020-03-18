@@ -1,6 +1,7 @@
 use crate::error::ARes;
 use crate::shadowrun::runners;
 use crate::state::{extract, Embedded};
+use crate::utils::find_message;
 use anyhow::bail;
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
@@ -56,15 +57,17 @@ enum Kind {
 }
 
 fn last_poll(ctx: &Context, base: &Message) -> ARes<Poll> {
-    for msg in base.channel_id.messages(ctx, |r| r.before(base.id))? {
-        if let Some(Embedded::EShadowrunPlan(_)) = extract(ctx, &msg) {
-            return Ok(Poll {
+    if let Ok(msg) = find_message(
+        ctx,
+        base,
+        |b| matches!(b, Embedded::EShadowrunPlan(_) | Embedded::EShadowrunConfirm(_)),
+    ) {
+        Ok(match extract(ctx, &msg) {
+            Some(Embedded::EShadowrunPlan(_)) => Poll {
                 message: msg,
                 kind: Kind::Plan,
-            });
-        }
-        if let Some(Embedded::EShadowrunConfirm(data)) = extract(ctx, &msg) {
-            return Ok(Poll {
+            },
+            Some(Embedded::EShadowrunConfirm(data)) => Poll {
                 message: msg,
                 kind: Kind::Confirm {
                     participants: data
@@ -73,11 +76,13 @@ fn last_poll(ctx: &Context, base: &Message) -> ARes<Poll> {
                         .map(|&id| UserId(id))
                         .collect(),
                 },
-            });
-        }
+            },
+            _ => unreachable!("previously matched"),
+        })
+    } else {
+        base.reply(ctx, "je n’ai pas trouvé le dernier sondage.")?;
+        bail!("could not find plan message")
     }
-    base.reply(ctx, "je n’ai pas trouvé le dernier sondage.")?;
-    bail!("could not find plan message")
 }
 
 fn status(ctx: &Context, poll: Poll) -> ARes<Status> {

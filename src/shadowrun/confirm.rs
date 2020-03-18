@@ -7,7 +7,7 @@ use crate::error::{ARes, AVoid};
 use crate::shadowrun::RUNNER;
 use crate::state::extract;
 use crate::state::{encode, Embedded};
-use crate::utils::MapExt;
+use crate::utils::{find_message, MapExt};
 use anyhow::{anyhow, bail};
 use boolinator::Boolinator;
 use chrono::{Date, Datelike, TimeZone, Utc, Weekday};
@@ -69,7 +69,7 @@ pub fn confirm_react(ctx: &Context, reaction: &Reaction) -> AVoid {
 }
 
 fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
-    let runner: Role = RUNNER.to_role_cached(ctx).ok_or(anyhow!("no role"))?;
+    let runner: Role = RUNNER.to_role_cached(ctx).ok_or_else(|| anyhow!("no role"))?;
     let ShadowrunConfirm {
         date_timestamp,
         participants_raw_ids: participants_ids,
@@ -281,13 +281,12 @@ enum GameTime {
 }
 
 fn last_plan(ctx: &Context, base: &Message) -> ARes<Message> {
-    for msg in base.channel_id.messages(ctx, |r| r.before(base.id))? {
-        if let Some(Embedded::EShadowrunPlan(_)) = extract(ctx, &msg) {
-            return Ok(msg);
-        }
+    if let Ok(msg) = find_message(ctx, base, |d| matches!(d, Embedded::EShadowrunPlan(_))) {
+        Ok(msg)
+    } else {
+        base.reply(ctx, "je n’ai pas trouvé le dernier planning.")?;
+        bail!("could not find plan message")
     }
-    base.reply(ctx, "je n’ai pas trouvé le dernier planning.")?;
-    bail!("could not find plan message")
 }
 
 fn read_participants_date(
