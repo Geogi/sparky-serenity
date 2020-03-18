@@ -47,10 +47,14 @@ pub fn find_message(
     let mut first = base.id;
     let mut current = first;
     loop {
-        for msg in base.channel_id.messages(ctx, |r| r.before(first))? {
+        let messages = base.channel_id.messages(ctx, |r| r.before(first))?;
+        if messages.is_empty() {
+            bail!("message not found: no more messages");
+        }
+        for msg in messages {
             counter += 1;
             if counter > FIND_MESSAGE_LIMIT {
-                bail!("message not found");
+                bail!("message not found: limit reached");
             }
             if let Some(data) = extract(ctx, &msg) {
                 if pred(&data) {
