@@ -1,11 +1,11 @@
-use crate::error::ARes;
+use crate::error::{wrap_cmd_err, ARes};
 use crate::shadowrun::runners;
 use crate::state::{extract, Embedded};
 use crate::utils::find_message;
 use anyhow::bail;
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
-use serenity::framework::standard::CommandResult;
+use serenity::framework::standard::{Args, CommandResult};
 use serenity::model::channel::Message;
 use serenity::model::channel::ReactionType::Unicode;
 use serenity::model::id::UserId;
@@ -13,32 +13,34 @@ use serenity::utils::MessageBuilder;
 use std::collections::HashSet;
 
 #[command]
-fn remind(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let ctx = &*ctx;
-    let poll = last_poll(ctx, msg)?;
-    let status = status(ctx, poll)?;
-    let Status {
-        polled: mut pending,
-        answered,
-    } = status;
-    pending.retain(|u| !answered.contains(u));
-    if pending.is_empty() {
-        msg.reply(ctx, "tout le monde a voté.")?;
-        return Ok(());
-    }
-    msg.channel_id.send_message(ctx, |m| {
-        m.content({
-            let mut mb = MessageBuilder::new();
-            mb.push("Rappel : un sondage est en cours. ");
-            for user in pending {
-                mb.mention(&user);
-                mb.push(", ");
-            }
-            mb.push("merci de répondre ; utiliser 🚫 si pas possible.");
-            mb
-        })
-    })?;
-    Ok(())
+fn remind(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult {
+    wrap_cmd_err(|| {
+        let ctx = &*ctx;
+        let poll = last_poll(ctx, msg)?;
+        let status = status(ctx, poll)?;
+        let Status {
+            polled: mut pending,
+            answered,
+        } = status;
+        pending.retain(|u| !answered.contains(u));
+        if pending.is_empty() {
+            msg.reply(ctx, "tout le monde a voté.")?;
+            return Ok(());
+        }
+        msg.channel_id.send_message(ctx, |m| {
+            m.content({
+                let mut mb = MessageBuilder::new();
+                mb.push("Rappel : un sondage est en cours. ");
+                for user in pending {
+                    mb.mention(&user);
+                    mb.push(", ");
+                }
+                mb.push("merci de répondre ; utiliser 🚫 si pas possible.");
+                mb
+            })
+        })?;
+        Ok(())
+    })
 }
 
 struct Status {

@@ -1,12 +1,13 @@
 pub mod confirm;
 pub mod plan;
 pub mod remind;
+pub mod roll;
 
 use crate::error::{ARes, AVoid};
 use crate::shadowrun::confirm::{confirm_react, CONFIRM_COMMAND};
 use crate::shadowrun::plan::{plan_react, PLAN_COMMAND};
 use crate::shadowrun::remind::REMIND_COMMAND;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context as _};
 use serenity::client::Context;
 use serenity::framework::standard::macros::group;
 use serenity::model::channel::Reaction;
@@ -25,14 +26,14 @@ pub const RUNNER: RoleId = match {
 pub struct Shadowrun;
 
 pub fn shadowrun_reaction_add(ctx: &Context, add_reaction: &Reaction) -> AVoid {
-    plan_react(ctx, add_reaction)?;
-    confirm_react(ctx, add_reaction)?;
+    plan_react(ctx, add_reaction).context("plan")?;
+    confirm_react(ctx, add_reaction).context("confirm")?;
     Ok(())
 }
 
 pub fn shadowrun_reaction_remove(ctx: &Context, removed_reaction: &Reaction) -> AVoid {
-    plan_react(ctx, removed_reaction)?;
-    confirm_react(ctx, removed_reaction)?;
+    plan_react(ctx, removed_reaction).context("plan")?;
+    confirm_react(ctx, removed_reaction).context("confirm")?;
     Ok(())
 }
 

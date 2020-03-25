@@ -3,12 +3,12 @@ use crate::date::{
     fr_weekday_to_str,
 };
 use crate::discord::{pop_self, reaction_is_own};
-use crate::error::{ARes, AVoid};
+use crate::error::{wrap_cmd_err, ARes, AVoid};
 use crate::shadowrun::RUNNER;
 use crate::state::extract;
 use crate::state::{encode, Embedded};
 use crate::utils::{find_message, MapExt};
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context as _};
 use boolinator::Boolinator;
 use chrono::{Date, Datelike, TimeZone, Utc, Weekday};
 use serde::{Deserialize, Serialize};
@@ -42,21 +42,23 @@ pub struct ShadowrunConfirm {
 #[command]
 #[num_args(1)]
 pub fn confirm(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let ctx = &*ctx;
-    let plan = last_plan(ctx, msg)?;
-    let day = fr_weekday_from_shorthand(&args.single::<String>()?)
-        .ok_or_else(|| anyhow!("cannot parse weekday"))?;
-    let (participants, date) = read_participants_date(ctx, &plan, day)?;
-    let data = ShadowrunConfirm {
-        date_timestamp: date.and_hms(12, 0, 0).timestamp(),
-        participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
-    };
-    let mut msg = msg.channel_id.send_message(ctx, |m| {
-        m.embed(|e| e.description("En préparation..."))
-            .reactions(vec!["✅", "🚫", "🏠", "🚩", "🕣", "🕘", "🕤"])
-    })?;
-    refresh(ctx, &mut msg, data)?;
-    Ok(())
+    wrap_cmd_err(|| {
+        let ctx = &*ctx;
+        let plan = last_plan(ctx, msg)?;
+        let day = fr_weekday_from_shorthand(&args.single::<String>()?)
+            .ok_or_else(|| anyhow!("cannot parse weekday"))?;
+        let (participants, date) = read_participants_date(ctx, &plan, day)?;
+        let data = ShadowrunConfirm {
+            date_timestamp: date.and_hms(12, 0, 0).timestamp(),
+            participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
+        };
+        let mut msg = msg.channel_id.send_message(ctx, |m| {
+            m.embed(|e| e.description("En préparation..."))
+                .reactions(vec!["✅", "🚫", "🏠", "🚩", "🕣", "🕘", "🕤"])
+        })?;
+        refresh(ctx, &mut msg, data).context("refresh embed")?;
+        Ok(())
+    })
 }
 
 pub fn confirm_react(ctx: &Context, reaction: &Reaction) -> AVoid {
@@ -65,7 +67,7 @@ pub fn confirm_react(ctx: &Context, reaction: &Reaction) -> AVoid {
     }
     let mut msg = reaction.message(ctx)?;
     if let Some(Embedded::EShadowrunConfirm(data)) = extract(ctx, &msg) {
-        refresh(ctx, &mut msg, data)?;
+        refresh(ctx, &mut msg, data).context("embed refresh")?;
     }
     Ok(())
 }
