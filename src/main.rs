@@ -86,6 +86,7 @@ fn main() -> AVoid {
 struct General;
 
 #[command]
+#[description = "Liste les jours de la semaine en réaction."]
 fn simple(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult {
     wrap_cmd_err(|| {
         let ctx = &*ctx;
@@ -104,6 +105,7 @@ fn simple(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult {
 struct Admin;
 
 #[command]
+#[description = "Interrompt le bot après avoir correctement fermé la connexion."]
 fn stop(ctx: &mut Context, _msg: &Message, mut _args: Args) -> CommandResult {
     wrap_cmd_err(|| {
         let ctx = &*ctx;
