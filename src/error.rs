@@ -6,8 +6,8 @@ use serenity::client::Context;
 use serenity::framework::standard::{CommandError, CommandResult};
 use serenity::model::channel::Message;
 use serenity::model::id::ChannelId;
-use serenity::prelude::TypeMapKey;
 use serenity::utils::MessageBuilder;
+use typemap::Key;
 
 const HANDLER_REPORT_INTERVAL_SECONDS: i64 = 20;
 
@@ -15,7 +15,7 @@ pub type AVoid = anyhow::Result<()>;
 pub type ARes<T> = anyhow::Result<T>;
 
 pub struct LastHandlerReportKey;
-impl TypeMapKey for LastHandlerReportKey {
+impl Key for LastHandlerReportKey {
     type Value = DateTime<Utc>;
 }
 

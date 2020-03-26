@@ -66,3 +66,7 @@ pub fn find_message(
         first = current;
     }
 }
+
+pub fn clap_name<'a, S: Into<&'a str>>(name: S) -> String {
+    format!("{}{}", crate::PREFIX, name.into())
+}

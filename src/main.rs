@@ -25,10 +25,11 @@ use serenity::framework::standard::{
 };
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
-use serenity::prelude::{Mutex, TypeMapKey};
+use serenity::prelude::Mutex as SerenityMutex;
 use std::collections::HashSet;
 use std::env;
 use std::sync::Arc;
+use typemap::Key;
 
 #[allow(clippy::unreadable_literal)]
 const OWNER: UserId = UserId(190183362294579211);
@@ -40,8 +41,8 @@ const PREFIX: &str = match {
 }}
 
 struct ManagerKey;
-impl TypeMapKey for ManagerKey {
-    type Value = Arc<Mutex<ShardManager>>;
+impl Key for ManagerKey {
+    type Value = Arc<SerenityMutex<ShardManager>>;
 }
 
 fn main() -> AVoid {

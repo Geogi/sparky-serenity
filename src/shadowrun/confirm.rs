@@ -8,8 +8,7 @@ use crate::help::{clap_help, clap_settings};
 use crate::shadowrun::RUNNER;
 use crate::state::extract;
 use crate::state::{encode, Embedded};
-use crate::utils::{find_message, MapExt};
-use crate::PREFIX;
+use crate::utils::{clap_name, find_message, MapExt};
 use anyhow::{anyhow, bail, Context as _};
 use boolinator::Boolinator;
 use chrono::{Date, Datelike, TimeZone, Utc, Weekday};
@@ -44,17 +43,19 @@ pub struct ShadowrunConfirm {
 }
 
 #[command]
-#[description = "Lit le dernier planning et crée un message de confirmation pour un jour donné.\n***ILC :** appelez avec `--help` pour l’utilisation.*"]
+#[description = "Lit le dernier planning et crée un message de confirmation pour un jour donné.\n\
+***ILC :** appelez avec `--help` pour l’utilisation.*"]
 pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     wrap_cmd_err(|| {
         let ctx = &*ctx;
-        let app = App::new(format!("{}sr confirm", PREFIX))
-            .about("Lit le dernier planning et crée un message de confirmation pour un jour donné.")
+        let app = App::new(clap_name("sr confirm"))
+            .about(
+                "Lit le dernier planning et crée un message de confirmation pour un jour \
+                donné.",
+            )
             .arg(
                 Arg::with_name("JOUR")
                     .help("Lettre du jour de la semaine choisi (LAEJVSD).")
-                    .required(true)
-                    .index(1)
                     .possible_values(&[
                         "l", "a", "e", "j", "v", "s", "d", "L", "A", "E", "J", "V", "S", "D",
                     ]),

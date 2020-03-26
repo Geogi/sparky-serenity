@@ -1,4 +1,4 @@
-use crate::error::ARes;
+use crate::error::{ARes, AVoid};
 use clap::{App, ArgMatches};
 use serenity::client::Context;
 use serenity::framework::standard::help_commands::with_embeds;
@@ -9,7 +9,9 @@ use serenity::model::id::UserId;
 use std::collections::HashSet;
 
 #[help]
-#[individual_command_tip = "Pour plus d’information sur une commande, donnez-la en argument à celle d’aide.\nCertaines commandes (notées **ILC**) nécessitent d’être appelées avec `--help` comme argument pour davantage d’informations sur leur utilisation."]
+#[individual_command_tip = "Pour plus d’information sur une commande, donnez-la en argument à \
+celle d’aide.\nCertaines commandes (notées **ILC**) nécessitent d’être appelées avec `--help` \
+comme argument pour davantage d’informations sur leur utilisation."]
 #[suggestion_text = "La commande n’existe pas, pensiez-vous à `{}` ?"]
 #[no_help_available_text = "Rien ne correspond dans l’aide."]
 #[command_not_found_text = "La commande `{}` n’existe pas."]
@@ -53,13 +55,7 @@ pub fn clap_help<'a>(
         Err(e) => e.kind != clap::ErrorKind::HelpDisplayed,
     };
     if is_err {
-        msg.reply(
-            ctx,
-            format!(
-                "Utilisation incorrecte de la commande. Utilisez `{} --help` pour l’aide.",
-                help_app
-            ),
-        )?;
+        clap_bad_use(ctx, msg, help_app.to_string())?;
     } else {
         let mut help = vec![];
         help_app.write_help(&mut help)?;
@@ -68,4 +64,15 @@ pub fn clap_help<'a>(
             .send_message(ctx, |m| m.embed(|e| e.title(help_app).description(help)))?;
     }
     Ok(None)
+}
+
+pub fn clap_bad_use(ctx: &Context, msg: &Message, name: String) -> AVoid {
+    msg.reply(
+        ctx,
+        format!(
+            "Utilisation incorrecte de la commande. Utilisez `{} --help` pour l’aide.",
+            name
+        ),
+    )?;
+    Ok(())
 }
