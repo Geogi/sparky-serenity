@@ -26,7 +26,7 @@ pub fn wrap_cmd_err(f: impl FnOnce() -> AVoid) -> CommandResult {
 pub fn log_cmd_err(ctx: &mut Context, msg: &Message, cmd: &str, res: CommandResult) {
     let ctx = &*ctx;
     if let Err(CommandError(err)) = res {
-        let chained = anyhow!("{}", err).context(format!("Command {} failed", cmd));
+        let chained = anyhow!("{}", err).context(format!("Échec de la commande `{}`", cmd));
         info!("{:#}", chained);
         // notifying through Discord is best efforts: result is ignored
         let _ = msg.reply(ctx, format!("{:#}", chained));
@@ -35,7 +35,7 @@ pub fn log_cmd_err(ctx: &mut Context, msg: &Message, cmd: &str, res: CommandResu
 
 pub fn log_handler_err(ctx: &Context, chan_id: ChannelId, res: AVoid) {
     if let Err(err) = res {
-        let chained = err.context("Error occurred in event handler");
+        let chained = err.context("Erreur lors du traitement d’un événement");
         info!("{:#}", chained);
         let do_report = {
             let data = ctx.data.read();
@@ -51,9 +51,9 @@ pub fn log_handler_err(ctx: &Context, chan_id: ChannelId, res: AVoid) {
                     MessageBuilder::new()
                         .mention(&OWNER)
                         .push(format!(": {:#}\n", chained))
-                        .push("Ignoring further handler errors for ")
+                        .push("Les erreurs similaires seront ignorées durant ")
                         .push(HANDLER_REPORT_INTERVAL_SECONDS)
-                        .push(" seconds, refer to journal logging."),
+                        .push(" secondes mais restent accessibles dans le journal système."),
                 )
             });
             let mut data = ctx.data.write();

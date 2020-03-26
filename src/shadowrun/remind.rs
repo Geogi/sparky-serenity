@@ -13,6 +13,7 @@ use serenity::utils::MessageBuilder;
 use std::collections::HashSet;
 
 #[command]
+#[description = "Analyse le précédent sondage (planning ou confirmation) et notifie les utilisateurs n’ayant pas voté."]
 fn remind(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult {
     wrap_cmd_err(|| {
         let ctx = &*ctx;

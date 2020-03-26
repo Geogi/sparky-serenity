@@ -20,6 +20,7 @@ use std::collections::HashSet;
 pub struct ShadowrunPlan;
 
 #[command]
+#[description = "Crée un planning jusqu’à la semaine suivante."]
 pub fn plan(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult {
     wrap_cmd_err(|| {
         let ctx = &*ctx;

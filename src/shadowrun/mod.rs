@@ -7,6 +7,7 @@ use crate::error::{ARes, AVoid};
 use crate::shadowrun::confirm::{confirm_react, CONFIRM_COMMAND};
 use crate::shadowrun::plan::{plan_react, PLAN_COMMAND};
 use crate::shadowrun::remind::REMIND_COMMAND;
+use crate::shadowrun::roll::ROLL_COMMAND;
 use anyhow::{anyhow, Context as _};
 use serenity::client::Context;
 use serenity::framework::standard::macros::group;
@@ -22,7 +23,7 @@ pub const RUNNER: RoleId = match {
 
 #[group]
 #[prefix = "sr"]
-#[commands(plan, confirm, remind)]
+#[commands(plan, confirm, remind, roll)]
 pub struct Shadowrun;
 
 pub fn shadowrun_reaction_add(ctx: &Context, add_reaction: &Reaction) -> AVoid {

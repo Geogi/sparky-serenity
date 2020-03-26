@@ -4,13 +4,16 @@ use crate::date::{
 };
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{wrap_cmd_err, ARes, AVoid};
+use crate::help::{clap_help, clap_settings};
 use crate::shadowrun::RUNNER;
 use crate::state::extract;
 use crate::state::{encode, Embedded};
 use crate::utils::{find_message, MapExt};
+use crate::PREFIX;
 use anyhow::{anyhow, bail, Context as _};
 use boolinator::Boolinator;
 use chrono::{Date, Datelike, TimeZone, Utc, Weekday};
+use clap::{App, Arg};
 use serde::{Deserialize, Serialize};
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
@@ -40,13 +43,37 @@ pub struct ShadowrunConfirm {
 }
 
 #[command]
-#[num_args(1)]
-pub fn confirm(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+#[description = "Lit le dernier planning et crée un message de confirmation pour un jour donné.\n***ILC :** appelez avec `--help` pour l’utilisation.*"]
+pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     wrap_cmd_err(|| {
         let ctx = &*ctx;
+        let app = App::new(format!("{}sr confirm", PREFIX))
+            .about("Lit le dernier planning et crée un message de confirmation pour un jour donné.")
+            .arg(
+                Arg::with_name("JOUR")
+                    .help("Lettre du jour de la semaine choisi (LAEJVSD).")
+                    .required(true)
+                    .index(1)
+                    .possible_values(&[
+                        "l", "a", "e", "j", "v", "s", "d", "L", "A", "E", "J", "V", "S", "D",
+                    ]),
+            )
+            .arg(
+                Arg::with_name("online")
+                    .short("o")
+                    .help("Cette séance sera en ligne."),
+            );
+        let app = clap_settings(app);
+        let args = match clap_help(ctx, msg, args, app)? {
+            Some(args) => args,
+            None => return Ok(()),
+        };
         let plan = last_plan(ctx, msg)?;
-        let day = fr_weekday_from_shorthand(&args.single::<String>()?)
-            .ok_or_else(|| anyhow!("cannot parse weekday"))?;
+        let day = fr_weekday_from_shorthand(
+            args.value_of("JOUR")
+                .ok_or_else(|| anyhow!("unreachable: unspecified day"))?,
+        )
+        .ok_or_else(|| anyhow!("cannot parse weekday"))?;
         let (participants, date) = read_participants_date(ctx, &plan, day)?;
         let data = ShadowrunConfirm {
             date_timestamp: date.and_hms(12, 0, 0).timestamp(),
