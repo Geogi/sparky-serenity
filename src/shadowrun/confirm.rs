@@ -40,6 +40,7 @@ const HOST_PRIORITY: &[UserId] = &[
 pub struct ShadowrunConfirm {
     pub date_timestamp: i64,
     pub participants_raw_ids: Vec<u64>,
+    pub online: bool,
 }
 
 #[command]
@@ -74,14 +75,20 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                 .ok_or_else(|| anyhow!("unreachable: unspecified day"))?,
         )
         .ok_or_else(|| anyhow!("cannot parse weekday"))?;
-        let (participants, date) = read_participants_date(ctx, &plan, day)?;
+        let online = args.is_present("online");
+        let (participants, date) = read_participants_date(ctx, &plan, day, online)?;
         let data = ShadowrunConfirm {
             date_timestamp: date.and_hms(12, 0, 0).timestamp(),
             participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
+            online,
         };
         let mut msg = msg.channel_id.send_message(ctx, |m| {
             m.embed(|e| e.description("En préparation..."))
-                .reactions(vec!["✅", "🚫", "🏠", "🚩", "🕣", "🕘", "🕤"])
+                .reactions(if online {
+                    vec!["✅", "🚫", "🕣", "🕘", "🕤"]
+                } else {
+                    vec!["✅", "🚫", "🏠", "🚩", "🕣", "🕘", "🕤"]
+                })
         })?;
         refresh(ctx, &mut msg, data).context("refresh embed")?;
         Ok(())
@@ -105,11 +112,12 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         .ok_or_else(|| anyhow!("no role"))?;
     let ShadowrunConfirm {
         date_timestamp,
-        participants_raw_ids: participants_ids,
+        participants_raw_ids,
+        online,
     } = data.clone();
     let date = Utc.timestamp(date_timestamp, 0).date();
     let mut participants = HashMap::new();
-    for user_id_raw in &participants_ids {
+    for user_id_raw in &participants_raw_ids {
         participants.insert(
             UserId(*user_id_raw),
             ConfirmInfo {
@@ -143,29 +151,31 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
             }
         });
     }
-    for granting in rus("🏠")? {
-        participants.modify(
-            granting.id,
-            |ConfirmInfo {
-                 attendance, time, ..
-             }| ConfirmInfo {
-                attendance,
-                hosting: Hosting::Granted,
-                time,
-            },
-        );
-    }
-    for demanding in rus("🚩")? {
-        participants.modify(
-            demanding.id,
-            |ConfirmInfo {
-                 attendance, time, ..
-             }| ConfirmInfo {
-                attendance,
-                hosting: Hosting::Demanded,
-                time,
-            },
-        );
+    if !online {
+        for granting in rus("🏠")? {
+            participants.modify(
+                granting.id,
+                |ConfirmInfo {
+                     attendance, time, ..
+                 }| ConfirmInfo {
+                    attendance,
+                    hosting: Hosting::Granted,
+                    time,
+                },
+            );
+        }
+        for demanding in rus("🚩")? {
+            participants.modify(
+                demanding.id,
+                |ConfirmInfo {
+                     attendance, time, ..
+                 }| ConfirmInfo {
+                    attendance,
+                    hosting: Hosting::Demanded,
+                    time,
+                },
+            );
+        }
     }
     for demanding in rus("🕣")? {
         participants.modify(
@@ -231,14 +241,18 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                         .push(" ")
                         .push_bold(fr_month_to_str(date))
                         .push(" à ")
-                        .push_bold(earliest(&participants))
-                        .push(" chez ")
-                        .mention(host_priority(&participants))
-                        .push(".\nMerci de : ")
-                        .push_bold("✅ confirmer 🚫 annuler")
-                        .push(".\nAccueil : ")
-                        .push_bold("🏠 possible 🚩 demandé")
-                        .push(".\nDécaler l’horaire : ")
+                        .push_bold(earliest(&participants));
+                    if online {
+                        mb.push(" en 💻 ").push_bold("ligne");
+                    } else {
+                        mb.push(" chez ").mention(host_priority(&participants));
+                    }
+                    mb.push(".\nMerci de : ")
+                        .push_bold("✅ confirmer 🚫 annuler");
+                    if !online {
+                        mb.push(".\nAccueil : ").push_bold("🏠 possible 🚩 demandé");
+                    }
+                    mb.push(".\nDécaler l’horaire : ")
                         .push_bold("🕣 20h30 🕘 21h 🕤 21h30")
                         .push(".");
                     mb
@@ -317,6 +331,7 @@ fn read_participants_date(
     ctx: &Context,
     plan: &Message,
     day: Weekday,
+    online: bool,
 ) -> ARes<(Vec<User>, Date<Utc>)> {
     let mut participants = plan.reaction_users(
         ctx,
@@ -325,6 +340,14 @@ fn read_participants_date(
         None,
     )?;
     pop_self(ctx, &mut participants)?;
+    if !online {
+        let only_online: Vec<UserId> = plan
+            .reaction_users(ctx, Unicode("💻".to_owned()), None, None)?
+            .into_iter()
+            .map(|u| u.id)
+            .collect();
+        participants.retain(|u| !only_online.contains(&u.id))
+    }
     let mut date = plan.timestamp.with_timezone(&Utc).date();
     while date.weekday() != day {
         date = date.succ();
