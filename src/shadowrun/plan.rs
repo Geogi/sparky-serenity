@@ -29,7 +29,7 @@ pub fn plan(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult 
             m.embed(|e| e.description("En préparation...")).reactions(
                 (0..=6)
                     .map(|inc| fr_weekday_to_emote((first_day + Duration::days(inc)).weekday()))
-                    .chain(vec!["🚫"]),
+                    .chain(vec!["🚫", "💻"]),
             )
         })?;
         refresh(ctx, &mut base)?;
@@ -64,6 +64,7 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
         .guild(ctx)
         .ok_or_else(|| anyhow!("cannot get guild"))?;
     let guild_id = guild.read().id;
+    let online = msg.reaction_users(ctx, Unicode("💻".to_owned()), None, None)?;
     let mut available = vec![];
     let mut voted = HashSet::new();
     let mut day = first_day;
@@ -103,7 +104,8 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
                         .push_bold(fr_day_to_str(last_day))
                         .push(" ")
                         .push_bold(fr_month_to_str(last_day))
-                        .push(".\nPensez à 🚫 si pas de disponibilité de la semaine.");
+                        .push(".\nMettre 💻 si disponible uniquement en ligne.\n")
+                        .push("Pensez à 🚫 si pas de disponibilité de la semaine.");
                     mb
                 })
                 .fields((0..=6).map(|inc| {
@@ -121,8 +123,12 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
                             } else {
                                 list.iter()
                                     .map(|user| {
-                                        user.nick_in(ctx, guild_id)
-                                            .unwrap_or_else(|| user.name.clone())
+                                        format!(
+                                            "{}{}",
+                                            user.nick_in(ctx, guild_id)
+                                                .unwrap_or_else(|| user.name.clone()),
+                                            if online.contains(user) { "·💻" } else { "" }
+                                        )
                                     })
                                     .collect::<Vec<String>>()
                                     .join("\n")
