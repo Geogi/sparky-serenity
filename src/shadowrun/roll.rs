@@ -5,8 +5,9 @@ use anyhow::anyhow;
 use chrono::Duration;
 use clap::{App, Arg};
 use nom::branch::alt;
+use nom::bytes::complete::tag;
 use nom::character::complete::{char, digit1};
-use nom::combinator::{map_res, opt};
+use nom::combinator::{map, map_res, opt};
 use nom::multi::fold_many0;
 use nom::sequence::{delimited, tuple};
 use nom::IResult;
@@ -37,7 +38,7 @@ pub fn roll(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                 • `R*[L](S)` : **Jet simple.** `R` réserve, `*` chance utilisée, `L` limite, `S` \
                 seuil. Seul `R` obligatoire.\n\
                 • `R*C[L](S,T)` : **Jet étendu.** `C` nombre de chances utilisées, `T` intervalle \
-                (1tc, 1m,\n10m, 30m, 1h, 1j, 1s, 1M). Seuls `R` et `S,` (avec la virgule) \
+                (1tc, 1m,\n10m, 30m, 1h, 1j, 1S, 1M). Seuls `R` et `S,` (avec la virgule) \
                 obligatoires.\n\
                 • `R1*[L1]-R2*[L2]` : **Jet opposé.** Seuls `R1` et `-R2` obligatoires.\n\
                 Toutes les valeurs sauf `T` peuvent être une série de termes.",
@@ -51,7 +52,7 @@ pub fn roll(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
             Some(args) => args,
             None => return Ok(()),
         };
-        let test = if let Ok(test) = parse_test(
+        let test = if let Ok(("", test)) = shadowrun_tests(
             args.value_of("EXPR")
                 .ok_or_else(|| anyhow!("unreachable: no expr"))?,
         ) {
@@ -61,7 +62,7 @@ pub fn roll(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
             return Ok(());
         };
         let mut rng = thread_rng();
-        let (summary, details) = resolve(&mut rng, test.1);
+        let (summary, details) = resolve(&mut rng, test);
         msg.channel_id
             .send_message(ctx, |m| m.embed(|e| e.title(summary).description(details)))?;
         Ok(())
@@ -85,7 +86,7 @@ struct ShadowrunExtended {
     pool: u64,
     edge_number: u64,
     limit: Option<u64>,
-    threshold: Option<u64>,
+    threshold: u64,
     interval: Option<Duration>,
 }
 
@@ -98,6 +99,7 @@ struct ShadowrunOpposed {
     their_limit: Option<u64>,
 }
 
+#[derive(Clone)]
 struct ShadowrunRoll {
     hits: u64,
     glitch: bool,
@@ -126,6 +128,13 @@ impl ShadowrunRoll {
     fn fumble(&self) -> bool {
         self.hits == 0 && self.glitch
     }
+}
+
+enum ExtendedOutcome {
+    Success,
+    Fumble,
+    GlitchedBelowOne,
+    PoolExhausted,
 }
 
 fn resolve(rng: &mut impl Rng, test: ShadowrunTest) -> (String, String) {
@@ -166,11 +175,79 @@ fn resolve(rng: &mut impl Rng, test: ShadowrunTest) -> (String, String) {
                     )
                 }
             };
-            let mut details = String::from("Détail du jet : ");
+            let mut details = format!(
+                "Détail du jet {}: ",
+                if edge { "(avec chance) " } else { "" }
+            );
             details.push_str(&res.fmt_details());
             (summary, details)
         }
-        ShadowrunTest::Extended(_) => unimplemented!(),
+        ShadowrunTest::Extended(ShadowrunExtended {
+            mut pool,
+            mut edge_number,
+            limit,
+            threshold,
+            interval,
+        }) => {
+            let mut all_res = vec![];
+            let mut hits: u64 = 0;
+            let mut penalties = vec![];
+            let result = loop {
+                if pool <= 0 {
+                    break ExtendedOutcome::PoolExhausted;
+                }
+                let partial = shadowrun_roll(rng, pool, edge_number > 0, limit);
+                all_res.push(partial.clone());
+                if partial.fumble() {
+                    break ExtendedOutcome::Fumble;
+                }
+                if partial.glitch {
+                    let penalty = Uniform::new_inclusive(1, 6).sample(rng);
+                    penalties.push(penalty);
+                    hits = hits.saturating_sub(penalty);
+                    if hits == 0 {
+                        break ExtendedOutcome::GlitchedBelowOne;
+                    }
+                }
+                hits += partial.hits;
+                if hits >= threshold {
+                    break ExtendedOutcome::Success;
+                }
+                pool = pool.saturating_sub(1);
+                edge_number = edge_number.saturating_sub(1);
+            };
+            let mut details = String::new();
+            let mut nr = 0;
+            for (i, res) in all_res.iter().enumerate() {
+                nr += res.hits;
+                details.push_str(&format!(
+                    "Lancer {} : {}{}\n",
+                    i + 1,
+                    res.fmt_details(),
+                    if res.fumble() {
+                        " | Échec critique ! Le test s’arrête ici...".to_owned()
+                    } else if res.glitch {
+                        let pen = penalties.pop().unwrap();
+                        nr = nr.saturating_sub(pen);
+                        format!(
+                            " | Complication ! Pénalité de {} réussites, plus que {}.",
+                            pen, nr
+                        )
+                    } else {
+                        format!(" | {} réussites.", nr)
+                    }
+                ))
+            }
+            let summary = match result {
+                ExtendedOutcome::Success => {
+                    format!("Réussite au bout de {} intervalles", all_res.len())
+                }
+                ExtendedOutcome::Fumble => "Échec critique !".to_string(),
+                ExtendedOutcome::GlitchedBelowOne => "Échec à force de complications !".to_string(),
+                ExtendedOutcome::PoolExhausted => "Échec faute de réserve !".to_string(),
+            };
+            (summary, details)
+        }
         ShadowrunTest::Opposed(_) => unimplemented!(),
     }
 }
@@ -210,19 +287,78 @@ fn shadowrun_roll(
     ShadowrunRoll { hits, glitch, all }
 }
 
-fn parse_test(input: &str) -> IResult<&str, ShadowrunTest> {
+fn shadowrun_tests(input: &str) -> IResult<&str, ShadowrunTest> {
+    alt((
+        map(opposed_test, |v| ShadowrunTest::Opposed(v)),
+        map(extended_test, |v| ShadowrunTest::Extended(v)),
+        map(simple_test, |v| ShadowrunTest::Simple(v)),
+    ))(input)
+}
+
+fn opposed_test(input: &str) -> IResult<&str, ShadowrunOpposed> {
+    map(tag("lolilol"), |i| unimplemented!())(input)
+}
+
+fn intervals(input: &str) -> IResult<&str, Duration> {
+    let (input, vstr) = alt((
+        tag("1tc"),
+        tag("1m"),
+        tag("10m"),
+        tag("30m"),
+        tag("1h"),
+        tag("1j"),
+        tag("1S"),
+        tag("1M"),
+    ))(input)?;
+    Ok((
+        input,
+        match vstr {
+            "1tc" => Duration::seconds(3),
+            "1m" => Duration::minutes(1),
+            "10m" => Duration::minutes(10),
+            "30m" => Duration::minutes(30),
+            "1h" => Duration::hours(1),
+            "1j" => Duration::days(1),
+            "1S" => Duration::weeks(1),
+            "1M" => Duration::days(30),
+            _ => unreachable!("previously matched"),
+        },
+    ))
+}
+
+fn extended_test(input: &str) -> IResult<&str, ShadowrunExtended> {
+    let (input, pool) = series(input)?;
+    let (input, edge) = opt(char('*'))(input)?;
+    let (input, edge_count) = opt(series)(input)?;
+    let (input, limit) = opt(delimited(char('['), series, char(']')))(input)?;
+    let (input, threshold) = delimited(char('('), series, char(','))(input)?;
+    let (input, interval) = opt(intervals)(input)?;
+    let (input, _) = char(')')(input)?;
+    Ok((
+        input,
+        ShadowrunExtended {
+            pool,
+            edge_number: edge_count.unwrap_or(if edge.is_some() { 1 } else { 0 }),
+            limit,
+            threshold,
+            interval,
+        },
+    ))
+}
+
+fn simple_test(input: &str) -> IResult<&str, ShadowrunSimple> {
     let (input, pool) = series(input)?;
     let (input, edge) = opt(char('*'))(input)?;
     let (input, limit) = opt(delimited(char('['), series, char(']')))(input)?;
     let (input, threshold) = opt(delimited(char('('), series, char(')')))(input)?;
     Ok((
         input,
-        ShadowrunTest::Simple(ShadowrunSimple {
+        ShadowrunSimple {
             pool,
             edge: edge.is_some(),
             limit,
             threshold,
-        }),
+        },
     ))
 }
 
