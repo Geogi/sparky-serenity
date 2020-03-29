@@ -3,14 +3,16 @@ use crate::date::{
     fr_weekday_to_str,
 };
 use crate::discord::{pop_self, reaction_is_own};
-use crate::error::{ARes, AVoid};
+use crate::error::{wrap_cmd_err, ARes, AVoid};
+use crate::help::{clap_help, clap_settings};
 use crate::shadowrun::RUNNER;
 use crate::state::extract;
 use crate::state::{encode, Embedded};
-use crate::utils::{find_message, MapExt};
-use anyhow::{anyhow, bail};
+use crate::utils::{clap_name, find_message, MapExt};
+use anyhow::{anyhow, bail, Context as _};
 use boolinator::Boolinator;
 use chrono::{Date, Datelike, TimeZone, Utc, Weekday};
+use clap::{App, Arg};
 use serde::{Deserialize, Serialize};
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
@@ -37,26 +39,61 @@ const HOST_PRIORITY: &[UserId] = &[
 pub struct ShadowrunConfirm {
     pub date_timestamp: i64,
     pub participants_raw_ids: Vec<u64>,
+    pub online: bool,
 }
 
 #[command]
-#[num_args(1)]
-pub fn confirm(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let ctx = &*ctx;
-    let plan = last_plan(ctx, msg)?;
-    let day = fr_weekday_from_shorthand(&args.single::<String>()?)
+#[description = "Lit le dernier planning et crée un message de confirmation pour un jour donné.\n\
+***ILC :** appelez avec `--help` pour l’utilisation.*"]
+pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    wrap_cmd_err(|| {
+        let ctx = &*ctx;
+        let app = App::new(clap_name("sr confirm"))
+            .about(
+                "Lit le dernier planning et crée un message de confirmation pour un jour \
+                donné.",
+            )
+            .arg(
+                Arg::with_name("JOUR")
+                    .help("Lettre du jour de la semaine choisi (LAEJVSD).")
+                    .possible_values(&[
+                        "l", "a", "e", "j", "v", "s", "d", "L", "A", "E", "J", "V", "S", "D",
+                    ]),
+            )
+            .arg(
+                Arg::with_name("online")
+                    .short("o")
+                    .help("Cette séance sera en ligne."),
+            );
+        let app = clap_settings(app);
+        let args = match clap_help(ctx, msg, args, app)? {
+            Some(args) => args,
+            None => return Ok(()),
+        };
+        let plan = last_plan(ctx, msg)?;
+        let day = fr_weekday_from_shorthand(
+            args.value_of("JOUR")
+                .ok_or_else(|| anyhow!("unreachable: unspecified day"))?,
+        )
         .ok_or_else(|| anyhow!("cannot parse weekday"))?;
-    let (participants, date) = read_participants_date(ctx, &plan, day)?;
-    let data = ShadowrunConfirm {
-        date_timestamp: date.and_hms(12, 0, 0).timestamp(),
-        participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
-    };
-    let mut msg = msg.channel_id.send_message(ctx, |m| {
-        m.embed(|e| e.description("En préparation..."))
-            .reactions(vec!["✅", "🚫", "🏠", "🚩", "🕣", "🕘", "🕤"])
-    })?;
-    refresh(ctx, &mut msg, data)?;
-    Ok(())
+        let online = args.is_present("online");
+        let (participants, date) = read_participants_date(ctx, &plan, day, online)?;
+        let data = ShadowrunConfirm {
+            date_timestamp: date.and_hms(12, 0, 0).timestamp(),
+            participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
+            online,
+        };
+        let mut msg = msg.channel_id.send_message(ctx, |m| {
+            m.embed(|e| e.description("En préparation..."))
+                .reactions(if online {
+                    vec!["✅", "🚫", "🕣", "🕘", "🕤"]
+                } else {
+                    vec!["✅", "🚫", "🏠", "🚩", "🕣", "🕘", "🕤"]
+                })
+        })?;
+        refresh(ctx, &mut msg, data).context("refresh embed")?;
+        Ok(())
+    })
 }
 
 pub fn confirm_react(ctx: &Context, reaction: &Reaction) -> AVoid {
@@ -65,7 +102,7 @@ pub fn confirm_react(ctx: &Context, reaction: &Reaction) -> AVoid {
     }
     let mut msg = reaction.message(ctx)?;
     if let Some(Embedded::EShadowrunConfirm(data)) = extract(ctx, &msg) {
-        refresh(ctx, &mut msg, data)?;
+        refresh(ctx, &mut msg, data).context("embed refresh")?;
     }
     Ok(())
 }
@@ -76,11 +113,12 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         .ok_or_else(|| anyhow!("no role"))?;
     let ShadowrunConfirm {
         date_timestamp,
-        participants_raw_ids: participants_ids,
+        participants_raw_ids,
+        online,
     } = data.clone();
     let date = Utc.timestamp(date_timestamp, 0).date();
     let mut participants = HashMap::new();
-    for user_id_raw in &participants_ids {
+    for user_id_raw in &participants_raw_ids {
         participants.insert(
             UserId(*user_id_raw),
             ConfirmInfo {
@@ -114,29 +152,31 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
             }
         });
     }
-    for granting in rus("🏠")? {
-        participants.modify(
-            granting.id,
-            |ConfirmInfo {
-                 attendance, time, ..
-             }| ConfirmInfo {
-                attendance,
-                hosting: Hosting::Granted,
-                time,
-            },
-        );
-    }
-    for demanding in rus("🚩")? {
-        participants.modify(
-            demanding.id,
-            |ConfirmInfo {
-                 attendance, time, ..
-             }| ConfirmInfo {
-                attendance,
-                hosting: Hosting::Demanded,
-                time,
-            },
-        );
+    if !online {
+        for granting in rus("🏠")? {
+            participants.modify(
+                granting.id,
+                |ConfirmInfo {
+                     attendance, time, ..
+                 }| ConfirmInfo {
+                    attendance,
+                    hosting: Hosting::Granted,
+                    time,
+                },
+            );
+        }
+        for demanding in rus("🚩")? {
+            participants.modify(
+                demanding.id,
+                |ConfirmInfo {
+                     attendance, time, ..
+                 }| ConfirmInfo {
+                    attendance,
+                    hosting: Hosting::Demanded,
+                    time,
+                },
+            );
+        }
     }
     for demanding in rus("🕣")? {
         participants.modify(
@@ -202,14 +242,18 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                         .push(" ")
                         .push_bold(fr_month_to_str(date))
                         .push(" à ")
-                        .push_bold(earliest(&participants))
-                        .push(" chez ")
-                        .mention(host_priority(&participants))
-                        .push(".\nMerci de : ")
-                        .push_bold("✅ confirmer 🚫 annuler")
-                        .push(".\nAccueil : ")
-                        .push_bold("🏠 possible 🚩 demandé")
-                        .push(".\nDécaler l’horaire : ")
+                        .push_bold(earliest(&participants));
+                    if online {
+                        mb.push(" en 💻 ").push_bold("ligne");
+                    } else {
+                        mb.push(" chez ").mention(host_priority(&participants));
+                    }
+                    mb.push(".\nMerci de : ")
+                        .push_bold("✅ confirmer 🚫 annuler");
+                    if !online {
+                        mb.push(".\nAccueil : ").push_bold("🏠 possible 🚩 demandé");
+                    }
+                    mb.push(".\nDécaler l’horaire : ")
                         .push_bold("🕣 20h30 🕘 21h 🕤 21h30")
                         .push(".");
                     mb
@@ -288,6 +332,7 @@ fn read_participants_date(
     ctx: &Context,
     plan: &Message,
     day: Weekday,
+    online: bool,
 ) -> ARes<(Vec<User>, Date<Utc>)> {
     let mut participants = plan.reaction_users(
         ctx,
@@ -296,6 +341,14 @@ fn read_participants_date(
         None,
     )?;
     pop_self(ctx, &mut participants)?;
+    if !online {
+        let only_online: Vec<UserId> = plan
+            .reaction_users(ctx, Unicode("💻".to_owned()), None, None)?
+            .into_iter()
+            .map(|u| u.id)
+            .collect();
+        participants.retain(|u| !only_online.contains(&u.id))
+    }
     let mut date = plan.timestamp.with_timezone(&Utc).date();
     while date.weekday() != day {
         date = date.succ();

@@ -1,6 +1,6 @@
 use crate::date::{fr_day_to_str, fr_month_to_str, fr_weekday_to_emote, fr_weekday_to_str};
 use crate::discord::{pop_self, reaction_is_own};
-use crate::error::AVoid;
+use crate::error::{wrap_cmd_err, AVoid};
 use crate::shadowrun::{runners, RUNNER};
 use crate::state::{encode, extract, Embedded};
 use anyhow::anyhow;
@@ -9,7 +9,7 @@ use inflector::Inflector;
 use serde::{Deserialize, Serialize};
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
-use serenity::framework::standard::CommandResult;
+use serenity::framework::standard::{Args, CommandResult};
 use serenity::model::channel::ReactionType::Unicode;
 use serenity::model::channel::{Message, Reaction};
 use serenity::model::guild::Role;
@@ -20,18 +20,21 @@ use std::collections::HashSet;
 pub struct ShadowrunPlan;
 
 #[command]
-pub fn plan(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let ctx = &*ctx;
-    let first_day = msg.timestamp.with_timezone(&Utc).date();
-    let mut base = msg.channel_id.send_message(ctx, |m| {
-        m.embed(|e| e.description("En préparation...")).reactions(
-            (0..=6)
-                .map(|inc| fr_weekday_to_emote((first_day + Duration::days(inc)).weekday()))
-                .chain(vec!["🚫"]),
-        )
-    })?;
-    refresh(ctx, &mut base)?;
-    Ok(())
+#[description = "Crée un planning jusqu’à la semaine suivante."]
+pub fn plan(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult {
+    wrap_cmd_err(|| {
+        let ctx = &*ctx;
+        let first_day = msg.timestamp.with_timezone(&Utc).date();
+        let mut base = msg.channel_id.send_message(ctx, |m| {
+            m.embed(|e| e.description("En préparation...")).reactions(
+                (0..=6)
+                    .map(|inc| fr_weekday_to_emote((first_day + Duration::days(inc)).weekday()))
+                    .chain(vec!["🚫", "💻"]),
+            )
+        })?;
+        refresh(ctx, &mut base)?;
+        Ok(())
+    })
 }
 
 pub fn plan_react(ctx: &Context, reaction: &Reaction) -> AVoid {
@@ -61,6 +64,7 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
         .guild(ctx)
         .ok_or_else(|| anyhow!("cannot get guild"))?;
     let guild_id = guild.read().id;
+    let online = msg.reaction_users(ctx, Unicode("💻".to_owned()), None, None)?;
     let mut available = vec![];
     let mut voted = HashSet::new();
     let mut day = first_day;
@@ -100,7 +104,8 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
                         .push_bold(fr_day_to_str(last_day))
                         .push(" ")
                         .push_bold(fr_month_to_str(last_day))
-                        .push(".\nPensez à 🚫 si pas de disponibilité de la semaine.");
+                        .push(".\nMettre 💻 si disponible uniquement en ligne.\n")
+                        .push("Pensez à 🚫 si pas de disponibilité de la semaine.");
                     mb
                 })
                 .fields((0..=6).map(|inc| {
@@ -118,8 +123,12 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
                             } else {
                                 list.iter()
                                     .map(|user| {
-                                        user.nick_in(ctx, guild_id)
-                                            .unwrap_or_else(|| user.name.clone())
+                                        format!(
+                                            "{}{}",
+                                            user.nick_in(ctx, guild_id)
+                                                .unwrap_or_else(|| user.name.clone()),
+                                            if online.contains(user) { "·💻" } else { "" }
+                                        )
                                     })
                                     .collect::<Vec<String>>()
                                     .join("\n")

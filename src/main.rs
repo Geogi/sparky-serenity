@@ -10,9 +10,10 @@ mod shadowrun;
 mod state;
 mod utils;
 
-use crate::error::{log_err, AVoid};
+use crate::error::{log_cmd_err, wrap_cmd_err, AVoid};
 use crate::handler::Handler;
 use crate::help::MY_HELP;
+use crate::shadowrun::roll::roll;
 use crate::shadowrun::SHADOWRUN_GROUP;
 use anyhow::anyhow;
 use dotenv::dotenv;
@@ -21,17 +22,18 @@ use serenity::client::bridge::gateway::ShardManager;
 use serenity::client::{Client, Context};
 use serenity::framework::standard::{
     macros::{command, group},
-    CommandResult, StandardFramework,
+    Args, CommandResult, StandardFramework,
 };
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
-use serenity::prelude::{Mutex, TypeMapKey};
+use serenity::prelude::Mutex as SerenityMutex;
 use std::collections::HashSet;
 use std::env;
 use std::sync::Arc;
+use typemap::Key;
 
 #[allow(clippy::unreadable_literal)]
-const OWNER: u64 = 190183362294579211;
+const OWNER: UserId = UserId(190183362294579211);
 
 match_guild! {
 const PREFIX: &str = match {
@@ -40,8 +42,8 @@ const PREFIX: &str = match {
 }}
 
 struct ManagerKey;
-impl TypeMapKey for ManagerKey {
-    type Value = Arc<Mutex<ShardManager>>;
+impl Key for ManagerKey {
+    type Value = Arc<SerenityMutex<ShardManager>>;
 }
 
 fn main() -> AVoid {
@@ -54,11 +56,11 @@ fn main() -> AVoid {
             .configure(|c| {
                 c.prefix(PREFIX).owners({
                     let mut owners = HashSet::new();
-                    owners.insert(UserId(OWNER));
+                    owners.insert(OWNER);
                     owners
                 })
             })
-            .after(log_err)
+            .after(log_cmd_err)
             .group(&GENERAL_GROUP)
             .group(&ADMIN_GROUP)
             .group(&SHADOWRUN_GROUP)
@@ -82,17 +84,28 @@ fn main() -> AVoid {
 }
 
 #[group]
-#[commands(simple)]
+#[commands(simple, roll_shortcut)]
 struct General;
 
 #[command]
-fn simple(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let ctx = &*ctx;
-    msg.channel_id.send_message(ctx, |m| {
-        m.content("Quel jour ?")
-            .reactions(vec!["🇱", "🇦", "🇪", "🇯", "🇻", "🇸", "🇩", "🚫"])
-    })?;
-    Ok(())
+#[description = "Raccourci pour `sr roll`"]
+#[help_available(false)]
+#[aliases(r)]
+fn roll_shortcut(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    roll(ctx, msg, args)
+}
+
+#[command]
+#[description = "Liste les jours de la semaine en réaction."]
+fn simple(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult {
+    wrap_cmd_err(|| {
+        let ctx = &*ctx;
+        msg.channel_id.send_message(ctx, |m| {
+            m.content("Quel jour ?")
+                .reactions(vec!["🇱", "🇦", "🇪", "🇯", "🇻", "🇸", "🇩", "🚫"])
+        })?;
+        Ok(())
+    })
 }
 
 #[group]
@@ -102,12 +115,15 @@ fn simple(ctx: &mut Context, msg: &Message) -> CommandResult {
 struct Admin;
 
 #[command]
-fn stop(ctx: &mut Context) -> CommandResult {
-    let ctx = &*ctx;
-    let data = ctx.data.read();
-    let manager = data
-        .get::<ManagerKey>()
-        .ok_or_else(|| anyhow!("manager not in data"))?;
-    manager.lock().shutdown_all();
-    Ok(())
+#[description = "Interrompt le bot après avoir correctement fermé la connexion."]
+fn stop(ctx: &mut Context, _msg: &Message, mut _args: Args) -> CommandResult {
+    wrap_cmd_err(|| {
+        let ctx = &*ctx;
+        let data = ctx.data.read();
+        let manager = data
+            .get::<ManagerKey>()
+            .ok_or_else(|| anyhow!("manager not in data"))?;
+        manager.lock().shutdown_all();
+        Ok(())
+    })
 }
