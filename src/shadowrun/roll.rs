@@ -1,16 +1,14 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
-use crate::error::{wrap_cmd_err, ARes};
+use crate::error::wrap_cmd_err;
 use crate::help::{clap_bad_use, clap_help, clap_settings};
 use crate::utils::clap_name;
 use anyhow::anyhow;
 use chrono::Duration;
 use clap::{App, Arg};
-use nom::bytes::complete::tag;
+use nom::branch::alt;
 use nom::character::complete::{char, digit1};
 use nom::combinator::{map_res, opt};
-use nom::multi::{fold_many1, separated_nonempty_list};
-use nom::sequence::delimited;
+use nom::multi::fold_many0;
+use nom::sequence::{delimited, tuple};
 use nom::IResult;
 use rand::distributions::Distribution;
 use rand::distributions::Uniform;
@@ -142,19 +140,30 @@ fn resolve(rng: &mut impl Rng, test: ShadowrunTest) -> (String, String) {
             let summary = if res.fumble() {
                 "Échec critique !".to_owned()
             } else {
+                let glitch = if res.glitch {
+                    " – complication !"
+                } else {
+                    "."
+                };
                 if let Some(threshold) = threshold {
                     if res.hits < threshold {
-                        "Échec".to_owned()
+                        format!("Échec{}", glitch)
                     } else if res.hits == threshold {
-                        "Réussite de justesse ou frôlé".to_owned()
+                        format!("Réussite de justesse ou frôlé{}", glitch)
                     } else {
                         format!(
-                            "Réussite avec {} succès excédentaires",
-                            res.hits - threshold
+                            "Réussite avec {} succès excédentaires{}",
+                            res.hits - threshold,
+                            glitch
                         )
                     }
                 } else {
-                    format!("{} réussites", res.hits)
+                    format!(
+                        "{} réussite{}{}",
+                        res.hits,
+                        if res.hits > 1 { "s" } else { "" },
+                        glitch
+                    )
                 }
             };
             let mut details = String::from("Détail du jet : ");
@@ -218,11 +227,20 @@ fn parse_test(input: &str) -> IResult<&str, ShadowrunTest> {
 }
 
 fn series(input: &str) -> IResult<&str, u64> {
-    map_res(separated_nonempty_list(tag("+"), digit1), sum_series)(input)
+    let (input, head) = map_res(digit1, parse_int)(input)?;
+    fold_many0(
+        tuple((alt((char('+'), char('-'))), map_res(digit1, parse_int))),
+        head,
+        series_sum,
+    )(input)
 }
 
-fn sum_series(input: Vec<&str>) -> Result<u64, ParseIntError> {
-    input.iter().fold(Ok(0), |a, i| Ok(a? + parse_int(i)?))
+fn series_sum(acc: u64, item: (char, u64)) -> u64 {
+    match item.0 {
+        '+' => acc.saturating_add(item.1),
+        '-' => acc.saturating_sub(item.1),
+        _ => unreachable!("should not parse"),
+    }
 }
 
 fn parse_int(input: &str) -> Result<u64, ParseIntError> {

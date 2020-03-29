@@ -13,6 +13,7 @@ mod utils;
 use crate::error::{log_cmd_err, wrap_cmd_err, AVoid};
 use crate::handler::Handler;
 use crate::help::MY_HELP;
+use crate::shadowrun::roll::roll;
 use crate::shadowrun::SHADOWRUN_GROUP;
 use anyhow::anyhow;
 use dotenv::dotenv;
@@ -83,8 +84,16 @@ fn main() -> AVoid {
 }
 
 #[group]
-#[commands(simple)]
+#[commands(simple, roll_shortcut)]
 struct General;
+
+#[command]
+#[description = "Raccourci pour `sr roll`"]
+#[help_available(false)]
+#[aliases(r)]
+fn roll_shortcut(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    roll(ctx, msg, args)
+}
 
 #[command]
 #[description = "Liste les jours de la semaine en réaction."]
