@@ -21,6 +21,7 @@ use serenity::model::channel::ReactionType::Unicode;
 use serenity::model::channel::{Message, Reaction};
 use serenity::model::guild::Role;
 use serenity::model::id::UserId;
+use serenity::model::misc::Mentionable;
 use serenity::model::user::User;
 use serenity::utils::MessageBuilder;
 use std::collections::HashMap;
@@ -221,7 +222,21 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         );
     }
     let data = encode(Embedded::EShadowrunConfirm(data))?;
+    let host = host_priority(&participants);
+    let host_nick = if online {
+        "en ligne".to_owned()
+    } else {
+        format!("chez {}", host.mention())
+    };
     msg.edit(ctx, |m| {
+        let weekday_to_str = fr_weekday_to_str(date.weekday());
+        let day_to_str = fr_day_to_str(date);
+        let month_to_str = fr_month_to_str(date);
+        let earliest = earliest(&participants);
+        m.content(format!(
+            "Shadowrun : confirmation pour le {} {} {} à {} {}.",
+            weekday_to_str, day_to_str, month_to_str, earliest, host_nick
+        ));
         m.embed(|e| {
             e.title("Shadowrun – Confirmation")
                 .colour(runner.colour)
@@ -236,17 +251,17 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                         mb.mention(user_id).push(", ");
                     }
                     mb.push("\nLa prochaine séance aura lieu le ")
-                        .push_bold(fr_weekday_to_str(date.weekday()))
+                        .push_bold(weekday_to_str)
                         .push(" ")
-                        .push_bold(fr_day_to_str(date))
+                        .push_bold(day_to_str)
                         .push(" ")
-                        .push_bold(fr_month_to_str(date))
+                        .push_bold(month_to_str)
                         .push(" à ")
-                        .push_bold(earliest(&participants));
+                        .push_bold(earliest);
                     if online {
                         mb.push(" en 💻 ").push_bold("ligne");
                     } else {
-                        mb.push(" chez ").mention(host_priority(&participants));
+                        mb.push(" chez ").mention(host);
                     }
                     mb.push(".\nMerci de : ")
                         .push_bold("✅ confirmer 🚫 annuler");
