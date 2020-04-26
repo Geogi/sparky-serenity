@@ -1,4 +1,4 @@
-use chrono::{Date, Datelike, Weekday, TimeZone};
+use chrono::{Date, Datelike, TimeZone, Weekday};
 
 pub const TZ_DEFAULT: chrono_tz::Tz = chrono_tz::Europe::Paris;
 

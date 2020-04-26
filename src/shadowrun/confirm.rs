@@ -1,4 +1,7 @@
-use crate::date::{fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote, fr_weekday_to_str, TZ_DEFAULT};
+use crate::date::{
+    fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote,
+    fr_weekday_to_str, TZ_DEFAULT,
+};
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{wrap_cmd_err, ARes, AVoid};
 use crate::help::{clap_help, clap_settings};
@@ -345,7 +348,7 @@ fn read_participants_date<T: TimeZone>(
     plan: &Message,
     day: Weekday,
     online: bool,
-    tz: T
+    tz: T,
 ) -> ARes<(Vec<User>, Date<T>)> {
     let mut participants = plan.reaction_users(
         ctx,

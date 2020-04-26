@@ -1,4 +1,6 @@
-use crate::date::{fr_day_to_str, fr_month_to_str, fr_weekday_to_emote, fr_weekday_to_str, TZ_DEFAULT};
+use crate::date::{
+    fr_day_to_str, fr_month_to_str, fr_weekday_to_emote, fr_weekday_to_str, TZ_DEFAULT,
+};
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{wrap_cmd_err, AVoid};
 use crate::shadowrun::{runners, RUNNER};
