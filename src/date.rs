@@ -1,6 +1,8 @@
-use chrono::{Date, Datelike, Utc, Weekday};
+use chrono::{Date, Datelike, Weekday, TimeZone};
 
-pub fn fr_month_to_str(date: Date<Utc>) -> &'static str {
+pub const TZ_DEFAULT: chrono_tz::Tz = chrono_tz::Europe::Paris;
+
+pub fn fr_month_to_str<T: TimeZone>(date: Date<T>) -> &'static str {
     match date.month() {
         1 => "janvier",
         2 => "février",
@@ -30,7 +32,7 @@ pub fn fr_weekday_to_str(day: Weekday) -> &'static str {
     }
 }
 
-pub fn fr_day_to_str(date: Date<Utc>) -> &'static str {
+pub fn fr_day_to_str<T: TimeZone>(date: Date<T>) -> &'static str {
     match date.day() {
         1 => "1er",
         2 => "2",

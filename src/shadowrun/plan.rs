@@ -1,10 +1,10 @@
-use crate::date::{fr_day_to_str, fr_month_to_str, fr_weekday_to_emote, fr_weekday_to_str};
+use crate::date::{fr_day_to_str, fr_month_to_str, fr_weekday_to_emote, fr_weekday_to_str, TZ_DEFAULT};
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{wrap_cmd_err, AVoid};
 use crate::shadowrun::{runners, RUNNER};
 use crate::state::{encode, extract, Embedded};
 use anyhow::anyhow;
-use chrono::{Datelike, Duration, Utc};
+use chrono::{Datelike, Duration};
 use inflector::Inflector;
 use serde::{Deserialize, Serialize};
 use serenity::client::Context;
@@ -24,7 +24,7 @@ pub struct ShadowrunPlan;
 pub fn plan(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult {
     wrap_cmd_err(|| {
         let ctx = &*ctx;
-        let first_day = msg.timestamp.with_timezone(&Utc).date();
+        let first_day = msg.timestamp.with_timezone(&TZ_DEFAULT).date();
         let mut base = msg.channel_id.send_message(ctx, |m| {
             m.embed(|e| e.description("En préparation...")).reactions(
                 (0..=6)
@@ -52,7 +52,7 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
     let runner: Role = RUNNER
         .to_role_cached(ctx)
         .ok_or_else(|| anyhow!("no role"))?;
-    let first_day = msg.timestamp.with_timezone(&Utc).date();
+    let first_day = msg.timestamp.with_timezone(&TZ_DEFAULT).date();
     let last_day = first_day + Duration::days(6);
     let chan = msg
         .channel_id
