@@ -189,6 +189,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "chrono-tz"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0e430fad0384e4defc3dc6b1223d1b886087a8bf9b7080e5ae027f73851ea15"
+dependencies = [
+ "chrono",
+ "parse-zoneinfo",
+]
+
+[[package]]
 name = "clap"
 version = "2.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -838,6 +848,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "parse-zoneinfo"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "feece9d0113b400182a7d00adcff81ccf29158c49c5abd11e2eed8589bf6ff07"
+dependencies = [
+ "regex",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1263,6 +1282,7 @@ dependencies = [
  "bincode",
  "boolinator",
  "chrono",
+ "chrono-tz",
  "clap",
  "ctrlc",
  "dotenv",

@@ -1,3 +1,6 @@
+// TODO: work in progress
+#![allow(dead_code, unused_variables)]
+
 use crate::error::wrap_cmd_err;
 use crate::help::{clap_bad_use, clap_help, clap_settings};
 use crate::utils::clap_name;
@@ -19,7 +22,7 @@ use serenity::framework::standard::macros::command;
 use serenity::framework::standard::{Args, CommandResult};
 use serenity::model::channel::Message;
 use serenity::utils::MessageBuilder;
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 use std::num::ParseIntError;
 use std::str::FromStr;
 
@@ -155,16 +158,14 @@ fn resolve(rng: &mut impl Rng, test: ShadowrunTest) -> (String, String) {
                     "."
                 };
                 if let Some(threshold) = threshold {
-                    if res.hits < threshold {
-                        format!("Échec{}", glitch)
-                    } else if res.hits == threshold {
-                        format!("Réussite de justesse ou frôlé{}", glitch)
-                    } else {
-                        format!(
+                    match res.hits.cmp(&threshold) {
+                        Ordering::Less => format!("Échec{}", glitch),
+                        Ordering::Equal => format!("Réussite de justesse ou frôlé{}", glitch),
+                        Ordering::Greater => format!(
                             "Réussite avec {} succès excédentaires{}",
                             res.hits - threshold,
                             glitch
-                        )
+                        ),
                     }
                 } else {
                     format!(
@@ -193,7 +194,7 @@ fn resolve(rng: &mut impl Rng, test: ShadowrunTest) -> (String, String) {
             let mut hits: u64 = 0;
             let mut penalties = vec![];
             let result = loop {
-                if pool <= 0 {
+                if pool == 0 {
                     break ExtendedOutcome::PoolExhausted;
                 }
                 let partial = shadowrun_roll(rng, pool, edge_number > 0, limit);
@@ -289,9 +290,9 @@ fn shadowrun_roll(
 
 fn shadowrun_tests(input: &str) -> IResult<&str, ShadowrunTest> {
     alt((
-        map(opposed_test, |v| ShadowrunTest::Opposed(v)),
-        map(extended_test, |v| ShadowrunTest::Extended(v)),
-        map(simple_test, |v| ShadowrunTest::Simple(v)),
+        map(opposed_test, ShadowrunTest::Opposed),
+        map(extended_test, ShadowrunTest::Extended),
+        map(simple_test, ShadowrunTest::Simple),
     ))(input)
 }
 

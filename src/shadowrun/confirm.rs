@@ -1,7 +1,4 @@
-use crate::date::{
-    fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote,
-    fr_weekday_to_str,
-};
+use crate::date::{fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote, fr_weekday_to_str, TZ_DEFAULT};
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{wrap_cmd_err, ARes, AVoid};
 use crate::help::{clap_help, clap_settings};
@@ -11,7 +8,7 @@ use crate::state::{encode, Embedded};
 use crate::utils::{clap_name, find_message, MapExt};
 use anyhow::{anyhow, bail, Context as _};
 use boolinator::Boolinator;
-use chrono::{Date, Datelike, TimeZone, Utc, Weekday};
+use chrono::{Date, Datelike, TimeZone, Weekday};
 use clap::{App, Arg};
 use serde::{Deserialize, Serialize};
 use serenity::client::Context;
@@ -78,7 +75,7 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         )
         .ok_or_else(|| anyhow!("cannot parse weekday"))?;
         let online = args.is_present("online");
-        let (participants, date) = read_participants_date(ctx, &plan, day, online)?;
+        let (participants, date) = read_participants_date(ctx, &plan, day, online, TZ_DEFAULT)?;
         let data = ShadowrunConfirm {
             date_timestamp: date.and_hms(12, 0, 0).timestamp(),
             participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
@@ -117,7 +114,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         participants_raw_ids,
         online,
     } = data.clone();
-    let date = Utc.timestamp(date_timestamp, 0).date();
+    let date = TZ_DEFAULT.timestamp(date_timestamp, 0).date();
     let mut participants = HashMap::new();
     for user_id_raw in &participants_raw_ids {
         participants.insert(
@@ -343,12 +340,13 @@ fn last_plan(ctx: &Context, base: &Message) -> ARes<Message> {
     }
 }
 
-fn read_participants_date(
+fn read_participants_date<T: TimeZone>(
     ctx: &Context,
     plan: &Message,
     day: Weekday,
     online: bool,
-) -> ARes<(Vec<User>, Date<Utc>)> {
+    tz: T
+) -> ARes<(Vec<User>, Date<T>)> {
     let mut participants = plan.reaction_users(
         ctx,
         Unicode(fr_weekday_to_emote(day).to_owned()),
@@ -364,7 +362,7 @@ fn read_participants_date(
             .collect();
         participants.retain(|u| !only_online.contains(&u.id))
     }
-    let mut date = plan.timestamp.with_timezone(&Utc).date();
+    let mut date = plan.timestamp.with_timezone(&tz).date();
     while date.weekday() != day {
         date = date.succ();
     }
