@@ -3,6 +3,7 @@ mod macros;
 
 mod date;
 mod discord;
+mod edf;
 mod error;
 mod handler;
 mod help;
@@ -10,6 +11,7 @@ mod shadowrun;
 mod state;
 mod utils;
 
+use crate::edf::EDF_GROUP;
 use crate::error::{log_cmd_err, wrap_cmd_err, AVoid};
 use crate::handler::Handler;
 use crate::help::MY_HELP;
@@ -63,6 +65,7 @@ fn main() -> AVoid {
             .after(log_cmd_err)
             .group(&GENERAL_GROUP)
             .group(&ADMIN_GROUP)
+            .group(&EDF_GROUP)
             .group(&SHADOWRUN_GROUP)
             .help(&MY_HELP),
     );
