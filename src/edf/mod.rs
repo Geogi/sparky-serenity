@@ -25,13 +25,6 @@ impl Key for SongFollowUpKey {
 #[command]
 fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
     wrap_cmd_err(|| {
-        let follow_up: Option<u8> = {
-            let data = ctx.data.read();
-            let last_handler_report = data.get::<SongFollowUpKey>();
-            last_handler_report
-                .map(|v| Utc::now() - *v > Duration::seconds(HANDLER_REPORT_INTERVAL_SECONDS))
-                .unwrap_or(true)
-        };
         Ok(())
     })
 }
