@@ -1,14 +1,14 @@
 mod songs;
 
+use crate::edf::songs::SONGS;
 use crate::error::wrap_cmd_err;
+use anyhow::Context as _;
+use chrono::{DateTime, Duration, Utc};
 use serenity::client::Context;
 use serenity::framework::standard::macros::{command, group};
 use serenity::framework::standard::CommandResult;
 use serenity::model::channel::Message;
 use typemap::Key;
-use chrono::{Utc, DateTime, Duration};
-use crate::edf::songs::SONGS;
-use anyhow::Context as _;
 
 #[group]
 #[prefix = "edf"]
@@ -45,9 +45,8 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
                 song_id: next,
             });
         }
-            let song = SONGS.get(next).context("wrong song id")?;
-            msg.channel_id.send_message(ctx, |m|
-                m.content(song))?;
+        let song = SONGS.get(next).context("wrong song id")?;
+        msg.channel_id.send_message(ctx, |m| m.content(song))?;
         Ok(())
     })
 }
