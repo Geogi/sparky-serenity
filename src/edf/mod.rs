@@ -9,6 +9,7 @@ use serenity::framework::standard::macros::{command, group};
 use serenity::framework::standard::CommandResult;
 use serenity::model::channel::Message;
 use typemap::Key;
+use serenity::model::id::UserId;
 
 #[group]
 #[prefix = "edf"]
@@ -16,6 +17,7 @@ use typemap::Key;
 pub struct Edf;
 
 struct SongFollowUp {
+    last_singer: UserId,
     last_time: DateTime<Utc>,
     song_id: usize,
 }
@@ -34,13 +36,14 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
         let followup = {
             let data = ctx.data.read();
             data.get::<SongFollowUpKey>()
-                .filter(|sf| Utc::now() - sf.last_time < Duration::seconds(FOLLOWUP_INTERVAL))
+                .filter(|sf| msg.author.id != sf.last_singer && Utc::now() - sf.last_time < Duration::seconds(FOLLOWUP_INTERVAL))
                 .map(|sf| sf.song_id)
         };
         let next = followup.map(|id| (id + 1) % SONGS.len()).unwrap_or(0);
         {
             let mut data = ctx.data.write();
             data.insert::<SongFollowUpKey>(SongFollowUp {
+                last_singer: msg.author.id,
                 last_time: Utc::now(),
                 song_id: next,
             });
