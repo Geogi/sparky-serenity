@@ -22,7 +22,7 @@ struct SongFollowUp {
     song_id: usize,
 }
 
-const FOLLOWUP_INTERVAL: i64 = 30;
+const FOLLOWUP_INTERVAL: i64 = 120;
 
 struct SongFollowUpKey;
 impl Key for SongFollowUpKey {
