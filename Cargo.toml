@@ -1,6 +1,6 @@
 [package]
 name = "sparky"
-version = "2.7.0-dev"
+version = "2.6.1"
 authors = ["Paul Blouët <paul@paulblouet.fr>"]
 edition = "2018"
 [dependencies.Inflector]
