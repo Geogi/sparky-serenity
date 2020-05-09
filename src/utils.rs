@@ -55,7 +55,7 @@ pub fn find_message_with_limit<T>(
     let mut first = base.id;
     let mut current = first;
     loop {
-        let messages = base.channel_id.messages(ctx, |r| r.before(first))?;
+        let messages = base.channel_id.messages(ctx, |r| r.before(first).limit(100))?;
         if messages.is_empty() {
             bail!("message not found: no more messages");
         }

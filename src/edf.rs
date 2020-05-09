@@ -10,7 +10,7 @@ use serenity::framework::standard::macros::{command, group};
 use serenity::framework::standard::CommandResult;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
-use serenity::utils::MessageBuilder;
+use serenity::utils::{MessageBuilder, Colour};
 
 #[group]
 #[prefix = "edf"]
@@ -39,7 +39,7 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
                 matches!(d, Embedded::EEdfSing(EdfSing {until_timestamp, verses})
             if &now_ts <= until_timestamp && verses.len() < 8)
             },
-            200,
+            100,
         ) {
             match embed {
                 Embedded::EEdfSing(state) => {
@@ -74,11 +74,11 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
                 .push_bold(user.nick_in(ctx, guild_id).unwrap_or(user.name))
                 .push(" ")
                 .push(SONGS[index])
-                .push("\n");
+                .push("\n\n");
         }
         if state.verses.len() < 8 {
             description
-                .push_italic("\nLe chœur se termine à ")
+                .push_italic("Le chœur se termine à ")
                 .push_italic(until.with_timezone(&TZ_DEFAULT).format("%H:%M"))
                 .push_italic(".");
         } else {
@@ -90,6 +90,7 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
                 e.title("Hymne des Forces de Défense Terrestre")
                     .description(description)
                     .footer(|f| f.text(footer))
+                    .colour(Colour::DARK_BLUE)
             })
         })?;
         delete_command_ifp(ctx, msg)?;

@@ -133,8 +133,8 @@ fn stop(ctx: &mut Context, _msg: &Message, mut _args: Args) -> CommandResult {
 
 #[command]
 #[description = "Supprime des anciens messages. Argument :\n\
-+ nombre <= 100 alors exactement ce nombre de mesagges.\
-+ nombre > 100 alors jusqu'au message ayant cet ID s'il est dans la limite.\
++ nombre <= 100 alors exactement ce nombre de mesagges.\n\
++ nombre > 100 alors jusqu'au message ayant cet ID s'il est dans la limite.\n\
 + autre ou rien alors limite par défaut de Discord."]
 fn clear(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     wrap_cmd_err(|| {
