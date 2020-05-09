@@ -1,6 +1,7 @@
+use crate::date::TZ_DEFAULT;
 use crate::discord::delete_command_ifp;
 use crate::error::wrap_cmd_err;
-use crate::state::{encode,  Embedded, find_by_state_limit};
+use crate::state::{encode, find_by_state_limit, Embedded};
 use anyhow::{bail, Context as _};
 use chrono::{Duration, Timelike, Utc};
 use serde::{Deserialize, Serialize};
@@ -10,7 +11,6 @@ use serenity::framework::standard::CommandResult;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 use serenity::utils::MessageBuilder;
-use crate::date::TZ_DEFAULT;
 
 #[group]
 #[prefix = "edf"]
@@ -32,10 +32,15 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
     wrap_cmd_err(|| {
         let ctx = &*ctx;
         let now_ts = Utc::now().timestamp();
-        let (mut target, mut state) = if let Ok((target, embed)) = find_by_state_limit(ctx, msg, |d| {
-            matches!(d, Embedded::EEdfSing(EdfSing {until_timestamp, verses})
+        let (mut target, mut state) = if let Ok((target, embed)) = find_by_state_limit(
+            ctx,
+            msg,
+            |d| {
+                matches!(d, Embedded::EEdfSing(EdfSing {until_timestamp, verses})
             if &now_ts <= until_timestamp && verses.len() < 8)
-        }, 200) {
+            },
+            200,
+        ) {
             match embed {
                 Embedded::EEdfSing(state) => {
                     if state.verses.last().context("should not be empty")? == &msg.author.id.0 {
@@ -43,7 +48,7 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
                         return Ok(());
                     }
                     (target, state)
-                },
+                }
                 _ => bail!("unreachable"),
             }
         } else {
@@ -59,29 +64,33 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
         let until = (Utc::now() + Duration::minutes(CHORUS_INTERVAL + 1))
             .with_second(0)
             .context("unreachable")?;
-        state.until_timestamp = until
-            .timestamp();
+        state.until_timestamp = until.timestamp();
         state.verses.push(msg.author.id.0);
         let guild_id = msg.guild(ctx).context("no guild")?.read().id;
         let mut description = MessageBuilder::new();
         for (index, user_id) in state.verses.iter().enumerate() {
             let user = UserId(*user_id).to_user(ctx)?;
-            description.push_bold(user.nick_in(ctx, guild_id).unwrap_or(user.name))
-            .push(" ")
-            .push(SONGS[index])
-            .push("\n");
+            description
+                .push_bold(user.nick_in(ctx, guild_id).unwrap_or(user.name))
+                .push(" ")
+                .push(SONGS[index])
+                .push("\n");
         }
         if state.verses.len() < 8 {
-            description.push_italic("\nLe chœur se termine à ")
+            description
+                .push_italic("\nLe chœur se termine à ")
                 .push_italic(until.with_timezone(&TZ_DEFAULT).format("%H:%M"))
                 .push_italic(".");
-        }
-        else {
+        } else {
             description.push_italic("🎌 EDF ! EDF ! 🎌");
         }
         let footer = encode(Embedded::EEdfSing(state))?;
         target.edit(ctx, |m| {
-            m.embed(|e| e.title("Hymne des Forces de Défense Terrestre").description(description).footer(|f| f.text(footer)))
+            m.embed(|e| {
+                e.title("Hymne des Forces de Défense Terrestre")
+                    .description(description)
+                    .footer(|f| f.text(footer))
+            })
         })?;
         delete_command_ifp(ctx, msg)?;
         Ok(())

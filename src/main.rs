@@ -12,7 +12,7 @@ mod state;
 mod utils;
 
 use crate::edf::EDF_GROUP;
-use crate::error::{log_cmd_err, wrap_cmd_err, AVoid, };
+use crate::error::{log_cmd_err, wrap_cmd_err, AVoid};
 use crate::handler::Handler;
 use crate::help::MY_HELP;
 use crate::shadowrun::roll::roll;
@@ -157,7 +157,7 @@ fn clear(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
                     }
                 }
                 all
-            },
+            }
             _ => n_msg_before(100)?,
         };
         msg.channel_id.delete_messages(ctx, messages)?;

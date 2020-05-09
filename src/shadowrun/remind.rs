@@ -1,6 +1,6 @@
 use crate::error::{wrap_cmd_err, ARes};
 use crate::shadowrun::runners;
-use crate::state::{Embedded, find_by_state};
+use crate::state::{find_by_state, Embedded};
 use anyhow::bail;
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;

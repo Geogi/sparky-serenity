@@ -2,7 +2,7 @@ use crate::edf::EdfSing;
 use crate::error::ARes;
 use crate::shadowrun::confirm::ShadowrunConfirm;
 use crate::shadowrun::plan::ShadowrunPlan;
-use crate::utils::{find_message_with_limit, find_message_with};
+use crate::utils::{find_message_with, find_message_with_limit};
 use base64::write::EncoderWriter;
 use base64::STANDARD;
 use bincode::{deserialize, serialize};
@@ -84,7 +84,10 @@ pub fn find_by_state_limit(
     mut pred: impl FnMut(&Embedded) -> bool,
     limit: usize,
 ) -> ARes<(Message, Embedded)> {
-    find_message_with_limit(ctx, base, |msg| {
-        extract(ctx, msg).and_then(|state| pred(&state).as_some(state))
-    }, limit)
+    find_message_with_limit(
+        ctx,
+        base,
+        |msg| extract(ctx, msg).and_then(|state| pred(&state).as_some(state)),
+        limit,
+    )
 }
