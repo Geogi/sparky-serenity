@@ -1,9 +1,12 @@
+use crate::edf::EdfSing;
 use crate::error::ARes;
 use crate::shadowrun::confirm::ShadowrunConfirm;
 use crate::shadowrun::plan::ShadowrunPlan;
+use crate::utils::{find_message_with_limit, find_message_with};
 use base64::write::EncoderWriter;
 use base64::STANDARD;
 use bincode::{deserialize, serialize};
+use boolinator::Boolinator;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
@@ -19,6 +22,7 @@ const CHUNK_LEN: usize = 60;
 pub enum Embedded {
     EShadowrunPlan(ShadowrunPlan),
     EShadowrunConfirm(ShadowrunConfirm),
+    EEdfSing(EdfSing),
 }
 
 pub fn encode(input: Embedded) -> ARes<String> {
@@ -62,4 +66,25 @@ pub fn extract(ctx: &Context, message: &Message) -> Option<Embedded> {
         }
     }
     None
+}
+
+pub fn find_by_state(
+    ctx: &Context,
+    base: &Message,
+    mut pred: impl FnMut(&Embedded) -> bool,
+) -> ARes<(Message, Embedded)> {
+    find_message_with(ctx, base, |msg| {
+        extract(ctx, msg).and_then(|state| pred(&state).as_some(state))
+    })
+}
+
+pub fn find_by_state_limit(
+    ctx: &Context,
+    base: &Message,
+    mut pred: impl FnMut(&Embedded) -> bool,
+    limit: usize,
+) -> ARes<(Message, Embedded)> {
+    find_message_with_limit(ctx, base, |msg| {
+        extract(ctx, msg).and_then(|state| pred(&state).as_some(state))
+    }, limit)
 }
