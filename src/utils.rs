@@ -40,7 +40,16 @@ impl<K: Hash + Eq, V> MapExt<K, V> for HashMap<K, V> {
 pub fn find_message_with<T>(
     ctx: &Context,
     base: &Message,
+    pred: impl FnMut(&Message) -> Option<T>,
+) -> ARes<(Message, T)> {
+    find_message_with_limit(ctx, base, pred, FIND_MESSAGE_LIMIT)
+}
+
+pub fn find_message_with_limit<T>(
+    ctx: &Context,
+    base: &Message,
     mut pred: impl FnMut(&Message) -> Option<T>,
+    limit: usize,
 ) -> ARes<(Message, T)> {
     let mut counter = 0;
     let mut first = base.id;
@@ -52,7 +61,7 @@ pub fn find_message_with<T>(
         }
         for msg in messages {
             counter += 1;
-            if counter > FIND_MESSAGE_LIMIT {
+            if counter > limit {
                 bail!("message not found: limit reached");
             }
             if let Some(v) = pred(&msg) {

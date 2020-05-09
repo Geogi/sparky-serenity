@@ -1,6 +1,6 @@
 use crate::discord::delete_command_ifp;
 use crate::error::wrap_cmd_err;
-use crate::state::{encode, find_by_state, Embedded};
+use crate::state::{encode,  Embedded, find_by_state_limit};
 use anyhow::{bail, Context as _};
 use chrono::{Duration, Timelike, Utc};
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,8 @@ pub struct Edf;
 
 #[derive(Serialize, Deserialize)]
 pub struct EdfSing {
-    verses: Vec<UserId>,
+    // Vec<UserId>
+    verses: Vec<u64>,
     until_timestamp: i64,
 }
 
@@ -31,12 +32,18 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
     wrap_cmd_err(|| {
         let ctx = &*ctx;
         let now_ts = Utc::now().timestamp();
-        let (mut target, mut state) = if let Ok((target, embed)) = find_by_state(ctx, msg, |d| {
+        let (mut target, mut state) = if let Ok((target, embed)) = find_by_state_limit(ctx, msg, |d| {
             matches!(d, Embedded::EEdfSing(EdfSing {until_timestamp, verses})
-            if until_timestamp <= &now_ts && verses.len() < 8)
-        }) {
+            if &now_ts <= until_timestamp && verses.len() < 8)
+        }, 200) {
             match embed {
-                Embedded::EEdfSing(state) => (target, state),
+                Embedded::EEdfSing(state) => {
+                    if state.verses.last().context("should not be empty")? == &msg.author.id.0 {
+                        msg.reply(ctx, "Il est défendu de chanter seul, soldat !")?;
+                        return Ok(());
+                    }
+                    (target, state)
+                },
                 _ => bail!("unreachable"),
             }
         } else {
@@ -54,11 +61,11 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
             .context("unreachable")?;
         state.until_timestamp = until
             .timestamp();
-        state.verses.push(msg.author.id);
+        state.verses.push(msg.author.id.0);
         let guild_id = msg.guild(ctx).context("no guild")?.read().id;
         let mut description = MessageBuilder::new();
         for (index, user_id) in state.verses.iter().enumerate() {
-            let user = user_id.to_user(ctx)?;
+            let user = UserId(*user_id).to_user(ctx)?;
             description.push_bold(user.nick_in(ctx, guild_id).unwrap_or(user.name))
             .push(" ")
             .push(SONGS[index])
@@ -74,7 +81,7 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
         }
         let footer = encode(Embedded::EEdfSing(state))?;
         target.edit(ctx, |m| {
-            m.embed(|e| e.title("Hymne des Forces de Défense Terrestres").description(description).footer(|f| f.text(footer)))
+            m.embed(|e| e.title("Hymne des Forces de Défense Terrestre").description(description).footer(|f| f.text(footer)))
         })?;
         delete_command_ifp(ctx, msg)?;
         Ok(())
