@@ -1,7 +1,6 @@
 use crate::error::{wrap_cmd_err, ARes};
 use crate::shadowrun::runners;
-use crate::state::{extract, Embedded};
-use crate::utils::find_message;
+use crate::state::{Embedded, find_by_state};
 use anyhow::bail;
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
@@ -61,17 +60,17 @@ enum Kind {
 }
 
 fn last_poll(ctx: &Context, base: &Message) -> ARes<Poll> {
-    if let Ok(msg) = find_message(
+    if let Ok((msg, state)) = find_by_state(
         ctx,
         base,
         |b| matches!(b, Embedded::EShadowrunPlan(_) | Embedded::EShadowrunConfirm(_)),
     ) {
-        Ok(match extract(ctx, &msg) {
-            Some(Embedded::EShadowrunPlan(_)) => Poll {
+        Ok(match state {
+            Embedded::EShadowrunPlan(_) => Poll {
                 message: msg,
                 kind: Kind::Plan,
             },
-            Some(Embedded::EShadowrunConfirm(data)) => Poll {
+            Embedded::EShadowrunConfirm(data) => Poll {
                 message: msg,
                 kind: Kind::Confirm {
                     participants: data

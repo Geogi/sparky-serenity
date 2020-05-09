@@ -6,9 +6,9 @@ use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{wrap_cmd_err, ARes, AVoid};
 use crate::help::{clap_help, clap_settings};
 use crate::shadowrun::RUNNER;
-use crate::state::extract;
 use crate::state::{encode, Embedded};
-use crate::utils::{clap_name, find_message, MapExt};
+use crate::state::{extract, find_by_state};
+use crate::utils::{clap_name, MapExt};
 use anyhow::{anyhow, bail, Context as _};
 use boolinator::Boolinator;
 use chrono::{Date, Datelike, TimeZone, Weekday};
@@ -335,7 +335,7 @@ enum GameTime {
 }
 
 fn last_plan(ctx: &Context, base: &Message) -> ARes<Message> {
-    if let Ok(msg) = find_message(ctx, base, |d| matches!(d, Embedded::EShadowrunPlan(_))) {
+    if let Ok((msg, _)) = find_by_state(ctx, base, |d| matches!(d, Embedded::EShadowrunPlan(_))) {
         Ok(msg)
     } else {
         base.reply(ctx, "je n’ai pas trouvé le dernier planning.")?;
