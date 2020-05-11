@@ -10,7 +10,7 @@ use serenity::framework::standard::macros::{command, group};
 use serenity::framework::standard::CommandResult;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
-use serenity::utils::{MessageBuilder, Colour};
+use serenity::utils::{Colour, MessageBuilder};
 
 #[group]
 #[prefix = "edf"]
