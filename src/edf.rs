@@ -74,15 +74,15 @@ fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
                 .push_bold(user.nick_in(ctx, guild_id).unwrap_or(user.name))
                 .push(" ")
                 .push(SONGS[index])
-                .push("\n\n");
+                .push("\n");
         }
         if state.verses.len() < 8 {
             description
-                .push_italic("Le chœur se termine à ")
+                .push_italic("\nLe chœur se termine à ")
                 .push_italic(until.with_timezone(&TZ_DEFAULT).format("%H:%M"))
                 .push_italic(".");
         } else {
-            description.push_italic("🎌 EDF ! EDF ! 🎌");
+            description.push_italic("\n🎌 EDF ! EDF ! 🎌");
         }
         let footer = encode(Embedded::EEdfSing(state))?;
         target.edit(ctx, |m| {
