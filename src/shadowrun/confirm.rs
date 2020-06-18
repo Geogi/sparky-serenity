@@ -65,6 +65,20 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                 Arg::with_name("online")
                     .short("o")
                     .help("Cette séance sera en ligne."),
+            )
+            .arg(
+                Arg::with_name("time")
+                    .short("t")
+                    .takes_value(true)
+                    .help("Horaire proposé par défaut.")
+                    .default_value("20"),
+            )
+            .arg(
+                Arg::with_name("alt-time")
+                    .short("T")
+                    .takes_value(true)
+                    .multiple(true)
+                    .help("Horaires alternatifs. Par défaut, 3 demi-heures suivantes."),
             );
         let app = clap_settings(app);
         let args = match clap_help(ctx, msg, args, app)? {
