@@ -75,8 +75,7 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         let day = fr_weekday_from_shorthand(
             args.value_of("JOUR")
                 .ok_or_else(|| anyhow!("unreachable: unspecified day"))?,
-        )
-        .ok_or_else(|| anyhow!("cannot parse weekday"))?;
+        )?;
         let online = args.is_present("online");
         let (participants, date) = read_participants_date(ctx, &plan, day, online, TZ_DEFAULT)?;
         let data = ShadowrunConfirm {
@@ -268,7 +267,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                     if !online {
                         mb.push(".\nAccueil : ").push_bold("🏠 possible 🚩 demandé");
                     }
-                    mb.push(".\nDécaler l’horaire : ")
+                    mb.push(".\nChanger l’horaire : ")
                         .push_bold("🕣 20h30 🕘 21h 🕤 21h30")
                         .push(".");
                     mb
