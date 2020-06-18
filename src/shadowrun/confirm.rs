@@ -1,7 +1,8 @@
 use crate::date::{
     fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote,
-    fr_weekday_to_str, TZ_DEFAULT,
+    fr_weekday_to_str, parse_time_emote_like, TZ_DEFAULT, time_emote
 };
+use chrono::Duration;
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{wrap_cmd_err, ARes, AVoid};
 use crate::help::{clap_help, clap_settings};
@@ -9,10 +10,12 @@ use crate::shadowrun::RUNNER;
 use crate::state::{encode, Embedded};
 use crate::state::{extract, find_by_state};
 use crate::utils::{clap_name, MapExt};
+use anyhow::Error;
 use anyhow::{anyhow, bail, Context as _};
 use boolinator::Boolinator;
-use chrono::{Date, Datelike, TimeZone, Weekday};
+use chrono::{Date, Datelike, NaiveTime, TimeZone, Timelike, Weekday};
 use clap::{App, Arg};
+use fehler::throws;
 use serde::{Deserialize, Serialize};
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
@@ -25,6 +28,7 @@ use serenity::model::misc::Mentionable;
 use serenity::model::user::User;
 use serenity::utils::MessageBuilder;
 use std::collections::HashMap;
+use std::convert::{TryFrom, };
 
 #[allow(clippy::unreadable_literal)]
 const DEFAULT_HOST: UserId = UserId(190183362294579211);
@@ -36,11 +40,15 @@ const HOST_PRIORITY: &[UserId] = &[
     UserId(136938893432848385),
 ];
 
+type HourHalf = (u8, bool);
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ShadowrunConfirm {
     pub date_timestamp: i64,
     pub participants_raw_ids: Vec<u64>,
     pub online: bool,
+    pub time: HourHalf,
+    pub alt_times: Vec<HourHalf>,
 }
 
 #[command]
@@ -92,18 +100,36 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         )?;
         let online = args.is_present("online");
         let (participants, date) = read_participants_date(ctx, &plan, day, online, TZ_DEFAULT)?;
+        let time = parse_time_emote_like(
+            args.value_of("time")
+                .context("unreachable: default value")?,
+        )?;
+        let mut reactions = vec!["✅", "🚫", ];
+        if !online {
+            reactions.append(&mut vec!["🏠", "🚩",]);
+        }
+        let mut alt_times = vec![];
+        if let Some(it) = args.values_of("alt-time") {
+            for alt_time_str in it {
+                let alt_time = parse_time_emote_like(alt_time_str)?;
+                alt_times.push(time_to_serial(alt_time)?);
+                reactions.push(time_emote(alt_time)?);
+            }
+        } else {
+            for i in 1..=3 {
+                reactions.push(time_emote(time + Duration::minutes(30 * i))?);
+            }
+        }
         let data = ShadowrunConfirm {
             date_timestamp: date.and_hms(12, 0, 0).timestamp(),
             participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
             online,
+            time: time_to_serial(time)?,
+            alt_times: alt_times,
         };
         let mut msg = msg.channel_id.send_message(ctx, |m| {
             m.embed(|e| e.description("En préparation..."))
-                .reactions(if online {
-                    vec!["✅", "🚫", "🕣", "🕘", "🕤"]
-                } else {
-                    vec!["✅", "🚫", "🏠", "🚩", "🕣", "🕘", "🕤"]
-                })
+                .reactions(reactions)
         })?;
         refresh(ctx, &mut msg, data).context("refresh embed")?;
         Ok(())
@@ -121,6 +147,16 @@ pub fn confirm_react(ctx: &Context, reaction: &Reaction) -> AVoid {
     Ok(())
 }
 
+#[throws]
+fn time_to_serial(time: NaiveTime) -> HourHalf {
+    let minute = time.minute();
+    if minute != 0 && minute != 30 {
+        bail!("unreachable: wrong minutes");
+    }
+    let hour_u8 = u8::try_from(time.hour())?;
+    (hour_u8, minute == 30)
+}
+
 fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
     let runner: Role = RUNNER
         .to_role_cached(ctx)
@@ -129,6 +165,8 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         date_timestamp,
         participants_raw_ids,
         online,
+        time,
+        alt_times,
     } = data.clone();
     let date = TZ_DEFAULT.timestamp(date_timestamp, 0).date();
     let mut participants = HashMap::new();
@@ -245,7 +283,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         let weekday_to_str = fr_weekday_to_str(date.weekday());
         let day_to_str = fr_day_to_str(date);
         let month_to_str = fr_month_to_str(date);
-        let earliest = earliest(&participants);
+        let earliest = earliest(time, &participants);
         m.content(format!(
             "Shadowrun : confirmation pour le {} {} {} à {} {}.",
             weekday_to_str, day_to_str, month_to_str, earliest, host_nick
@@ -292,17 +330,12 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
     Ok(())
 }
 
-fn earliest(participants: &HashMap<UserId, ConfirmInfo>) -> &'static str {
-    match participants
+fn earliest(default: NaiveTime, participants: &HashMap<UserId, ConfirmInfo>) -> NaiveTime {
+    participants
         .iter()
         .filter_map(|(_, info)| (info.attendance == Attendance::Confirmed).as_some(info.time))
         .max()
-    {
-        Some(GameTime::NineThirty) => "21h30",
-        Some(GameTime::Nine) => "21h",
-        Some(GameTime::EightThirty) => "20h30",
-        _ => "20h",
-    }
+        .unwrap_or(default)
 }
 
 fn host_priority(participants: &HashMap<UserId, ConfirmInfo>) -> &UserId {
@@ -322,7 +355,7 @@ fn host_priority(participants: &HashMap<UserId, ConfirmInfo>) -> &UserId {
 struct ConfirmInfo {
     attendance: Attendance,
     hosting: Hosting,
-    time: GameTime,
+    time: NaiveTime,
 }
 
 #[derive(PartialEq)]
@@ -337,14 +370,6 @@ enum Hosting {
     Unspecified,
     Granted,
     Demanded,
-}
-
-#[derive(Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
-enum GameTime {
-    Eight,
-    EightThirty,
-    Nine,
-    NineThirty,
 }
 
 fn last_plan(ctx: &Context, base: &Message) -> ARes<Message> {
