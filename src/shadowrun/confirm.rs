@@ -1,8 +1,7 @@
 use crate::date::{
     fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote,
-    fr_weekday_to_str, parse_time_emote_like, TZ_DEFAULT, time_emote
+    fr_weekday_to_str, parse_time_emote_like, time_emote, TZ_DEFAULT,
 };
-use chrono::Duration;
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{wrap_cmd_err, ARes, AVoid};
 use crate::help::{clap_help, clap_settings};
@@ -13,6 +12,7 @@ use crate::utils::{clap_name, MapExt};
 use anyhow::Error;
 use anyhow::{anyhow, bail, Context as _};
 use boolinator::Boolinator;
+use chrono::Duration;
 use chrono::{Date, Datelike, NaiveTime, TimeZone, Timelike, Weekday};
 use clap::{App, Arg};
 use fehler::throws;
@@ -28,7 +28,7 @@ use serenity::model::misc::Mentionable;
 use serenity::model::user::User;
 use serenity::utils::MessageBuilder;
 use std::collections::HashMap;
-use std::convert::{TryFrom, };
+use std::convert::TryFrom;
 
 #[allow(clippy::unreadable_literal)]
 const DEFAULT_HOST: UserId = UserId(190183362294579211);
@@ -104,9 +104,9 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
             args.value_of("time")
                 .context("unreachable: default value")?,
         )?;
-        let mut reactions = vec!["✅", "🚫", ];
+        let mut reactions = vec!["✅", "🚫"];
         if !online {
-            reactions.append(&mut vec!["🏠", "🚩",]);
+            reactions.append(&mut vec!["🏠", "🚩"]);
         }
         let mut alt_times = vec![];
         if let Some(it) = args.values_of("alt-time") {
@@ -157,6 +157,10 @@ fn time_to_serial(time: NaiveTime) -> HourHalf {
     (hour_u8, minute == 30)
 }
 
+fn serial_to_time(serial: HourHalf) -> NaiveTime {
+    NaiveTime::from_hms(serial.0.into(), if serial.1 { 30 } else { 0 }, 0)
+}
+
 fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
     let runner: Role = RUNNER
         .to_role_cached(ctx)
@@ -165,18 +169,19 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         date_timestamp,
         participants_raw_ids,
         online,
-        time,
+        time: serial_time,
         alt_times,
     } = data.clone();
     let date = TZ_DEFAULT.timestamp(date_timestamp, 0).date();
     let mut participants = HashMap::new();
+    let time = serial_to_time(serial_time);
     for user_id_raw in &participants_raw_ids {
         participants.insert(
             UserId(*user_id_raw),
             ConfirmInfo {
                 attendance: Attendance::Pending,
                 hosting: Hosting::Unspecified,
-                time: GameTime::Eight,
+                time,
             },
         );
     }
@@ -191,7 +196,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
             ConfirmInfo {
                 attendance: Attendance::Confirmed,
                 hosting: Hosting::Unspecified,
-                time: GameTime::Eight,
+                time,
             },
         );
     }
