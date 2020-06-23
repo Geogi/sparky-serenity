@@ -1,7 +1,7 @@
 use anyhow::{bail, Error};
 use chrono::{Date, Datelike, NaiveTime, TimeZone, Timelike, Weekday};
 use fehler::throws;
-use Weekday::{Tue, Mon, Wed, Fri, Thu, Sat, Sun};
+use Weekday::{Fri, Mon, Sat, Sun, Thu, Tue, Wed};
 
 pub const TZ_DEFAULT: chrono_tz::Tz = chrono_tz::Europe::Paris;
 

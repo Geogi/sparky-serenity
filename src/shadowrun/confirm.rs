@@ -20,17 +20,17 @@ use serde::{Deserialize, Serialize};
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
 use serenity::framework::standard::{Args, CommandResult};
-use serenity::model::channel::ReactionType::{Unicode};
+use serenity::model::channel::ReactionType::Unicode;
 use serenity::model::channel::{Message, Reaction};
 use serenity::model::guild::Role;
 use serenity::model::id::UserId;
 use serenity::model::misc::Mentionable;
 use serenity::model::user::User;
 use serenity::utils::MessageBuilder;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use Attendance::{Confirmed, Pending, Cancelled};
-use Hosting::{Granted, Unspecified, Demanded};
+use Attendance::{Cancelled, Confirmed, Pending};
+use Hosting::{Demanded, Granted, Unspecified};
 
 #[allow(clippy::unreadable_literal)]
 const DEFAULT_HOST: UserId = UserId(190183362294579211);
@@ -88,8 +88,10 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                     .short("T")
                     .takes_value(true)
                     .multiple(true)
-                    .help("Horaires alternatifs par précédence croissante. \
-                    Par défaut, 3 demi-heures suivantes."),
+                    .help(
+                        "Horaires alternatifs par précédence croissante. \
+                    Par défaut, 3 demi-heures suivantes.",
+                    ),
             );
         let app = clap_settings(app);
         let args = match clap_help(ctx, msg, args, app)? {
@@ -178,12 +180,19 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
     let date = TZ_DEFAULT.timestamp(date_timestamp, 0).date();
     let mut participants = HashMap::new();
     let time = serial_to_time(serial_time);
-    let alt_times: Box<dyn Iterator<Item = NaiveTime>> = if proposed_serial_alts.is_empty() {
-        Box::new((1..=3).map(|i| time + Duration::minutes(30 * i)))
+    let alt_times: Vec<NaiveTime> = if proposed_serial_alts.is_empty() {
+        (1..=3).map(|i| time + Duration::minutes(30 * i)).collect()
     } else {
-        Box::new(proposed_serial_alts.into_iter().map(serial_to_time))
+        proposed_serial_alts
+            .into_iter()
+            .map(serial_to_time)
+            .collect()
     };
-    let alternatives = alt_times.map(|t| Ok((t, time_emote(t)?))).collect::<ARes<Vec<_>>>()?;
+    let alt_with_emotes = alt_times
+        .iter()
+        .cloned()
+        .map(|t| Ok((t, time_emote(t)?)))
+        .collect::<ARes<Vec<_>>>()?;
     for user_id_raw in &participants_raw_ids {
         participants.insert(
             UserId(*user_id_raw),
@@ -244,18 +253,18 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
             );
         }
     }
-    for (time, emote) in alternatives {
+    for (time, emote) in &alt_with_emotes {
         for time_changing in rus(emote)? {
             participants.modify(
                 time_changing.id,
                 move |ConfirmInfo {
-                     attendance,
-                     hosting,
-                     ..
-                 }| ConfirmInfo {
+                          attendance,
+                          hosting,
+                          ..
+                      }| ConfirmInfo {
                     attendance,
                     hosting,
-                    time,
+                    time: time.clone(),
                 },
             );
         }
@@ -271,10 +280,10 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         let weekday_to_str = fr_weekday_to_str(date.weekday());
         let day_to_str = fr_day_to_str(date);
         let month_to_str = fr_month_to_str(date);
-        let earliest = earliest(time, &participants);
+        let selected_time = select_time(time, alt_times, &participants);
         m.content(format!(
             "Shadowrun : confirmation pour le {} {} {} à {} {}.",
-            weekday_to_str, day_to_str, month_to_str, earliest, host_nick
+            weekday_to_str, day_to_str, month_to_str, selected_time, host_nick
         ));
         m.embed(|e| {
             e.title("Shadowrun – Confirmation")
@@ -296,7 +305,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                         .push(" ")
                         .push_bold(month_to_str)
                         .push(" à ")
-                        .push_bold(earliest);
+                        .push_bold(selected_time);
                     if online {
                         mb.push(" en 💻 ").push_bold("ligne");
                     } else {
@@ -307,9 +316,14 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                     if !online {
                         mb.push(".\nAccueil : ").push_bold("🏠 possible 🚩 demandé");
                     }
-                    mb.push(".\nChanger l’horaire : ")
-                        .push_bold("🕣 20h30 🕘 21h 🕤 21h30")
-                        .push(".");
+                    mb.push(".\nChanger l’horaire :");
+                    for (time, emote) in alt_with_emotes {
+                        mb.push_bold(" ")
+                            .push_bold(emote)
+                            .push_bold(" ")
+                            .push_bold(time);
+                    }
+                    mb.push(".");
                     mb
                 })
                 .footer(|f| f.text(data))
@@ -318,11 +332,26 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
     Ok(())
 }
 
-fn earliest(default: NaiveTime, participants: &HashMap<UserId, ConfirmInfo>) -> NaiveTime {
-    participants
+fn select_time(
+    default: NaiveTime,
+    alternatives: Vec<NaiveTime>,
+    participants: &HashMap<UserId, ConfirmInfo>,
+) -> NaiveTime {
+    let asked_times: HashSet<NaiveTime> = participants
         .iter()
-        .filter_map(|(_, info)| (info.attendance == Confirmed).as_some(info.time))
-        .max()
+        .filter_map(
+            |(
+                _,
+                ConfirmInfo {
+                    attendance, time, ..
+                },
+            )| (attendance == &Confirmed).as_some(time),
+        )
+        .cloned()
+        .collect();
+    alternatives
+        .into_iter()
+        .rfind(|time| asked_times.contains(time))
         .unwrap_or(default)
 }
 
