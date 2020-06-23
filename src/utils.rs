@@ -14,7 +14,7 @@ pub trait MapExt<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq;
     fn insert(&mut self, k: K, v: V) -> Option<V>;
-    fn modify<Q: ?Sized>(&mut self, k: K, f: fn(V) -> V)
+    fn modify<Q: ?Sized>(&mut self, k: K, f: impl FnMut(V) -> V)
     where
         K: Borrow<Q>,
         Q: Hash + Eq,

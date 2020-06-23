@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
 use serenity::framework::standard::{Args, CommandResult};
-use serenity::model::channel::ReactionType::Unicode;
+use serenity::model::channel::ReactionType::{Unicode};
 use serenity::model::channel::{Message, Reaction};
 use serenity::model::guild::Role;
 use serenity::model::id::UserId;
@@ -29,6 +29,8 @@ use serenity::model::user::User;
 use serenity::utils::MessageBuilder;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use Attendance::{Confirmed, Pending, Cancelled};
+use Hosting::{Granted, Unspecified, Demanded};
 
 #[allow(clippy::unreadable_literal)]
 const DEFAULT_HOST: UserId = UserId(190183362294579211);
@@ -86,7 +88,8 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                     .short("T")
                     .takes_value(true)
                     .multiple(true)
-                    .help("Horaires alternatifs. Par défaut, 3 demi-heures suivantes."),
+                    .help("Horaires alternatifs par précédence croissante. \
+                    Par défaut, 3 demi-heures suivantes."),
             );
         let app = clap_settings(app);
         let args = match clap_help(ctx, msg, args, app)? {
@@ -170,17 +173,23 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         participants_raw_ids,
         online,
         time: serial_time,
-        alt_times,
+        alt_times: proposed_serial_alts,
     } = data.clone();
     let date = TZ_DEFAULT.timestamp(date_timestamp, 0).date();
     let mut participants = HashMap::new();
     let time = serial_to_time(serial_time);
+    let alt_times: Box<dyn Iterator<Item = NaiveTime>> = if proposed_serial_alts.is_empty() {
+        Box::new((1..=3).map(|i| time + Duration::minutes(30 * i)))
+    } else {
+        Box::new(proposed_serial_alts.into_iter().map(serial_to_time))
+    };
+    let alternatives = alt_times.map(|t| Ok((t, time_emote(t)?))).collect::<ARes<Vec<_>>>()?;
     for user_id_raw in &participants_raw_ids {
         participants.insert(
             UserId(*user_id_raw),
             ConfirmInfo {
-                attendance: Attendance::Pending,
-                hosting: Hosting::Unspecified,
+                attendance: Pending,
+                hosting: Unspecified,
                 time,
             },
         );
@@ -194,8 +203,8 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         participants.insert(
             confirming.id,
             ConfirmInfo {
-                attendance: Attendance::Confirmed,
-                hosting: Hosting::Unspecified,
+                attendance: Confirmed,
+                hosting: Unspecified,
                 time,
             },
         );
@@ -203,7 +212,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
     for cancelling in rus("🚫")? {
         participants.modify(cancelling.id, |ConfirmInfo { hosting, time, .. }| {
             ConfirmInfo {
-                attendance: Attendance::Cancelled,
+                attendance: Cancelled,
                 hosting,
                 time,
             }
@@ -217,7 +226,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                      attendance, time, ..
                  }| ConfirmInfo {
                     attendance,
-                    hosting: Hosting::Granted,
+                    hosting: Granted,
                     time,
                 },
             );
@@ -229,53 +238,27 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                      attendance, time, ..
                  }| ConfirmInfo {
                     attendance,
-                    hosting: Hosting::Demanded,
+                    hosting: Demanded,
                     time,
                 },
             );
         }
     }
-    for demanding in rus("🕣")? {
-        participants.modify(
-            demanding.id,
-            |ConfirmInfo {
-                 attendance,
-                 hosting,
-                 ..
-             }| ConfirmInfo {
-                attendance,
-                hosting,
-                time: GameTime::EightThirty,
-            },
-        );
-    }
-    for demanding in rus("🕘")? {
-        participants.modify(
-            demanding.id,
-            |ConfirmInfo {
-                 attendance,
-                 hosting,
-                 ..
-             }| ConfirmInfo {
-                attendance,
-                hosting,
-                time: GameTime::Nine,
-            },
-        );
-    }
-    for demanding in rus("🕤")? {
-        participants.modify(
-            demanding.id,
-            |ConfirmInfo {
-                 attendance,
-                 hosting,
-                 ..
-             }| ConfirmInfo {
-                attendance,
-                hosting,
-                time: GameTime::NineThirty,
-            },
-        );
+    for (time, emote) in alternatives {
+        for time_changing in rus(emote)? {
+            participants.modify(
+                time_changing.id,
+                move |ConfirmInfo {
+                     attendance,
+                     hosting,
+                     ..
+                 }| ConfirmInfo {
+                    attendance,
+                    hosting,
+                    time,
+                },
+            );
+        }
     }
     let data = encode(Embedded::EShadowrunConfirm(data))?;
     let host = host_priority(&participants);
@@ -300,9 +283,9 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                     let mut mb = MessageBuilder::new();
                     for (user_id, info) in &participants {
                         match info.attendance {
-                            Attendance::Confirmed => mb.push("✅"),
-                            Attendance::Cancelled => mb.push("🚫"),
-                            Attendance::Pending => mb.push("⌛"),
+                            Confirmed => mb.push("✅"),
+                            Cancelled => mb.push("🚫"),
+                            Pending => mb.push("⌛"),
                         };
                         mb.mention(user_id).push(", ");
                     }
@@ -338,15 +321,15 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
 fn earliest(default: NaiveTime, participants: &HashMap<UserId, ConfirmInfo>) -> NaiveTime {
     participants
         .iter()
-        .filter_map(|(_, info)| (info.attendance == Attendance::Confirmed).as_some(info.time))
+        .filter_map(|(_, info)| (info.attendance == Confirmed).as_some(info.time))
         .max()
         .unwrap_or(default)
 }
 
 fn host_priority(participants: &HashMap<UserId, ConfirmInfo>) -> &UserId {
-    for offer in &[Hosting::Demanded, Hosting::Granted] {
+    for offer in &[Demanded, Granted] {
         let hosts = participants.iter().filter_map(|(id, info)| {
-            (info.attendance == Attendance::Confirmed && &info.hosting == offer).as_some(id)
+            (info.attendance == Confirmed && &info.hosting == offer).as_some(id)
         });
         for priority_host in HOST_PRIORITY {
             if let Some(host) = hosts.clone().find(|&h| h == priority_host) {
