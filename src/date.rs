@@ -185,3 +185,11 @@ pub fn time_emote(time: NaiveTime) -> &'static str {
         _ => bail!("no emote available for this time"),
     }
 }
+
+pub fn hm24_format(time: &NaiveTime) -> String {
+    if time.minute() == 0 {
+        format!("{}h", time.hour())
+    } else {
+        format!("{}h{}", time.hour(), time.minute())
+    }
+}
