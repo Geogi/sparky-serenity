@@ -1,6 +1,6 @@
 use crate::date::{
     fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote,
-    fr_weekday_to_str, parse_time_emote_like, time_emote, TZ_DEFAULT,
+    fr_weekday_to_str, parse_time_emote_like, time_emote, TZ_DEFAULT, hm24_format,
 };
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{wrap_cmd_err, ARes, AVoid};
@@ -280,7 +280,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         let weekday_to_str = fr_weekday_to_str(date.weekday());
         let day_to_str = fr_day_to_str(date);
         let month_to_str = fr_month_to_str(date);
-        let selected_time = select_time(time, alt_times, &participants);
+        let selected_time = hm24_format(&select_time(time, alt_times, &participants));
         m.content(format!(
             "Shadowrun : confirmation pour le {} {} {} à {} {}.",
             weekday_to_str, day_to_str, month_to_str, selected_time, host_nick
@@ -318,10 +318,10 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                     }
                     mb.push(".\nChanger l’horaire :");
                     for (time, emote) in alt_with_emotes {
-                        mb.push_bold(" ")
-                            .push_bold(emote)
-                            .push_bold(" ")
-                            .push_bold(time);
+                        mb.push(" ")
+                            .push(emote)
+                            .push(" ")
+                            .push_bold(hm24_format(&time));
                     }
                     mb.push(".");
                     mb
