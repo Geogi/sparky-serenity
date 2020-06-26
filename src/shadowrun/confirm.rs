@@ -117,8 +117,18 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         if let Some(it) = args.values_of("alt-time") {
             for alt_time_str in it {
                 let alt_time = parse_time_emote_like(alt_time_str)?;
+                let emote = time_emote(alt_time)?;
+                if alt_time == time {
+                    msg.reply(ctx, "Erreur : un horaire alternatif correspond à l’horaire par \
+                    défaut.")?;
+                    return Ok(());
+                }
+                if reactions.contains(&emote) {
+                    msg.reply(ctx, "Erreur : une emote horaire est dupliquée.")?;
+                    return Ok(());
+                }
                 alt_times.push(time_to_serial(alt_time)?);
-                reactions.push(time_emote(alt_time)?);
+                reactions.push(emote);
             }
         } else {
             for i in 1..=3 {
