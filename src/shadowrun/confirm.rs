@@ -140,7 +140,7 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
             participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
             online,
             time: time_to_serial(time)?,
-            alt_times: alt_times,
+            alt_times,
         };
         let mut msg = msg.channel_id.send_message(ctx, |m| {
             m.embed(|e| e.description("En préparation..."))
