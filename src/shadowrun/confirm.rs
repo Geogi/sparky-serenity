@@ -1,6 +1,6 @@
 use crate::date::{
     fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote,
-    fr_weekday_to_str, parse_time_emote_like, time_emote, TZ_DEFAULT, hm24_format,
+    fr_weekday_to_str, hm24_format, parse_time_emote_like, time_emote, TZ_DEFAULT,
 };
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{wrap_cmd_err, ARes, AVoid};
@@ -119,8 +119,11 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                 let alt_time = parse_time_emote_like(alt_time_str)?;
                 let emote = time_emote(alt_time)?;
                 if alt_time == time {
-                    msg.reply(ctx, "Erreur : un horaire alternatif correspond à l’horaire par \
-                    défaut.")?;
+                    msg.reply(
+                        ctx,
+                        "Erreur : un horaire alternatif correspond à l’horaire par \
+                    défaut.",
+                    )?;
                     return Ok(());
                 }
                 if reactions.contains(&emote) {

@@ -1,8 +1,14 @@
-
-use serenity::{client::Context, framework::standard::{Args, macros::{command, group}, CommandResult}, model::channel::Message};
-use crate::{ManagerKey, error::wrap_cmd_err};
+use crate::{error::wrap_cmd_err, ManagerKey};
 use anyhow::bail;
 use anyhow::Context as _;
+use serenity::{
+    client::Context,
+    framework::standard::{
+        macros::{command, group},
+        Args, CommandResult,
+    },
+    model::channel::Message,
+};
 
 #[group]
 #[prefix = "adm"]
@@ -16,9 +22,7 @@ fn stop(ctx: &mut Context, _msg: &Message, mut _args: Args) -> CommandResult {
     wrap_cmd_err(|| {
         let ctx = &*ctx;
         let data = ctx.data.read();
-        let manager = data
-            .get::<ManagerKey>()
-            .context("manager not in data")?;
+        let manager = data.get::<ManagerKey>().context("manager not in data")?;
         manager.lock().shutdown_all();
         Ok(())
     })
@@ -62,9 +66,7 @@ fn clear(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 #[command]
 #[description = "Déclenche délibérément une erreur, à des fins de débogage."]
 fn fail() -> CommandResult {
-    wrap_cmd_err(|| 
-        bail!("failing on purpose")
-    )
+    wrap_cmd_err(|| bail!("failing on purpose"))
 }
 
 #[command]
