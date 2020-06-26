@@ -1,6 +1,6 @@
 use crate::date::{
     fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote,
-    fr_weekday_to_str, TZ_DEFAULT,
+    fr_weekday_to_str, parse_time_emote_like, time_emote, TZ_DEFAULT, hm24_format,
 };
 use crate::discord::{pop_self, reaction_is_own};
 use crate::error::{wrap_cmd_err, ARes, AVoid};
@@ -9,10 +9,13 @@ use crate::shadowrun::RUNNER;
 use crate::state::{encode, Embedded};
 use crate::state::{extract, find_by_state};
 use crate::utils::{clap_name, MapExt};
+use anyhow::Error;
 use anyhow::{anyhow, bail, Context as _};
 use boolinator::Boolinator;
-use chrono::{Date, Datelike, TimeZone, Weekday};
+use chrono::Duration;
+use chrono::{Date, Datelike, NaiveTime, TimeZone, Timelike, Weekday};
 use clap::{App, Arg};
+use fehler::throws;
 use serde::{Deserialize, Serialize};
 use serenity::client::Context;
 use serenity::framework::standard::macros::command;
@@ -24,7 +27,10 @@ use serenity::model::id::UserId;
 use serenity::model::misc::Mentionable;
 use serenity::model::user::User;
 use serenity::utils::MessageBuilder;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::convert::TryFrom;
+use Attendance::{Cancelled, Confirmed, Pending};
+use Hosting::{Demanded, Granted, Unspecified};
 
 #[allow(clippy::unreadable_literal)]
 const DEFAULT_HOST: UserId = UserId(190183362294579211);
@@ -36,11 +42,15 @@ const HOST_PRIORITY: &[UserId] = &[
     UserId(136938893432848385),
 ];
 
+type HourHalf = (u8, bool);
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ShadowrunConfirm {
     pub date_timestamp: i64,
     pub participants_raw_ids: Vec<u64>,
     pub online: bool,
+    pub time: HourHalf,
+    pub alt_times: Vec<HourHalf>,
 }
 
 #[command]
@@ -65,6 +75,23 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                 Arg::with_name("online")
                     .short("o")
                     .help("Cette séance sera en ligne."),
+            )
+            .arg(
+                Arg::with_name("time")
+                    .short("t")
+                    .takes_value(true)
+                    .help("Horaire proposé par défaut.")
+                    .default_value("20"),
+            )
+            .arg(
+                Arg::with_name("alt-time")
+                    .short("T")
+                    .takes_value(true)
+                    .multiple(true)
+                    .help(
+                        "Horaires alternatifs par précédence croissante. \
+                    Par défaut, 3 demi-heures suivantes.",
+                    ),
             );
         let app = clap_settings(app);
         let args = match clap_help(ctx, msg, args, app)? {
@@ -75,22 +102,49 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         let day = fr_weekday_from_shorthand(
             args.value_of("JOUR")
                 .ok_or_else(|| anyhow!("unreachable: unspecified day"))?,
-        )
-        .ok_or_else(|| anyhow!("cannot parse weekday"))?;
+        )?;
         let online = args.is_present("online");
         let (participants, date) = read_participants_date(ctx, &plan, day, online, TZ_DEFAULT)?;
+        let time = parse_time_emote_like(
+            args.value_of("time")
+                .context("unreachable: default value")?,
+        )?;
+        let mut reactions = vec!["✅", "🚫"];
+        if !online {
+            reactions.append(&mut vec!["🏠", "🚩"]);
+        }
+        let mut alt_times = vec![];
+        if let Some(it) = args.values_of("alt-time") {
+            for alt_time_str in it {
+                let alt_time = parse_time_emote_like(alt_time_str)?;
+                let emote = time_emote(alt_time)?;
+                if alt_time == time {
+                    msg.reply(ctx, "Erreur : un horaire alternatif correspond à l’horaire par \
+                    défaut.")?;
+                    return Ok(());
+                }
+                if reactions.contains(&emote) {
+                    msg.reply(ctx, "Erreur : une emote horaire est dupliquée.")?;
+                    return Ok(());
+                }
+                alt_times.push(time_to_serial(alt_time)?);
+                reactions.push(emote);
+            }
+        } else {
+            for i in 1..=3 {
+                reactions.push(time_emote(time + Duration::minutes(30 * i))?);
+            }
+        }
         let data = ShadowrunConfirm {
             date_timestamp: date.and_hms(12, 0, 0).timestamp(),
             participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
             online,
+            time: time_to_serial(time)?,
+            alt_times: alt_times,
         };
         let mut msg = msg.channel_id.send_message(ctx, |m| {
             m.embed(|e| e.description("En préparation..."))
-                .reactions(if online {
-                    vec!["✅", "🚫", "🕣", "🕘", "🕤"]
-                } else {
-                    vec!["✅", "🚫", "🏠", "🚩", "🕣", "🕘", "🕤"]
-                })
+                .reactions(reactions)
         })?;
         refresh(ctx, &mut msg, data).context("refresh embed")?;
         Ok(())
@@ -108,6 +162,20 @@ pub fn confirm_react(ctx: &Context, reaction: &Reaction) -> AVoid {
     Ok(())
 }
 
+#[throws]
+fn time_to_serial(time: NaiveTime) -> HourHalf {
+    let minute = time.minute();
+    if minute != 0 && minute != 30 {
+        bail!("unreachable: wrong minutes");
+    }
+    let hour_u8 = u8::try_from(time.hour())?;
+    (hour_u8, minute == 30)
+}
+
+fn serial_to_time(serial: HourHalf) -> NaiveTime {
+    NaiveTime::from_hms(serial.0.into(), if serial.1 { 30 } else { 0 }, 0)
+}
+
 fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
     let runner: Role = RUNNER
         .to_role_cached(ctx)
@@ -116,16 +184,32 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         date_timestamp,
         participants_raw_ids,
         online,
+        time: serial_time,
+        alt_times: proposed_serial_alts,
     } = data.clone();
     let date = TZ_DEFAULT.timestamp(date_timestamp, 0).date();
     let mut participants = HashMap::new();
+    let time = serial_to_time(serial_time);
+    let alt_times: Vec<NaiveTime> = if proposed_serial_alts.is_empty() {
+        (1..=3).map(|i| time + Duration::minutes(30 * i)).collect()
+    } else {
+        proposed_serial_alts
+            .into_iter()
+            .map(serial_to_time)
+            .collect()
+    };
+    let alt_with_emotes = alt_times
+        .iter()
+        .cloned()
+        .map(|t| Ok((t, time_emote(t)?)))
+        .collect::<ARes<Vec<_>>>()?;
     for user_id_raw in &participants_raw_ids {
         participants.insert(
             UserId(*user_id_raw),
             ConfirmInfo {
-                attendance: Attendance::Pending,
-                hosting: Hosting::Unspecified,
-                time: GameTime::Eight,
+                attendance: Pending,
+                hosting: Unspecified,
+                time,
             },
         );
     }
@@ -138,16 +222,16 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         participants.insert(
             confirming.id,
             ConfirmInfo {
-                attendance: Attendance::Confirmed,
-                hosting: Hosting::Unspecified,
-                time: GameTime::Eight,
+                attendance: Confirmed,
+                hosting: Unspecified,
+                time,
             },
         );
     }
     for cancelling in rus("🚫")? {
         participants.modify(cancelling.id, |ConfirmInfo { hosting, time, .. }| {
             ConfirmInfo {
-                attendance: Attendance::Cancelled,
+                attendance: Cancelled,
                 hosting,
                 time,
             }
@@ -161,7 +245,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                      attendance, time, ..
                  }| ConfirmInfo {
                     attendance,
-                    hosting: Hosting::Granted,
+                    hosting: Granted,
                     time,
                 },
             );
@@ -173,53 +257,27 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                      attendance, time, ..
                  }| ConfirmInfo {
                     attendance,
-                    hosting: Hosting::Demanded,
+                    hosting: Demanded,
                     time,
                 },
             );
         }
     }
-    for demanding in rus("🕣")? {
-        participants.modify(
-            demanding.id,
-            |ConfirmInfo {
-                 attendance,
-                 hosting,
-                 ..
-             }| ConfirmInfo {
-                attendance,
-                hosting,
-                time: GameTime::EightThirty,
-            },
-        );
-    }
-    for demanding in rus("🕘")? {
-        participants.modify(
-            demanding.id,
-            |ConfirmInfo {
-                 attendance,
-                 hosting,
-                 ..
-             }| ConfirmInfo {
-                attendance,
-                hosting,
-                time: GameTime::Nine,
-            },
-        );
-    }
-    for demanding in rus("🕤")? {
-        participants.modify(
-            demanding.id,
-            |ConfirmInfo {
-                 attendance,
-                 hosting,
-                 ..
-             }| ConfirmInfo {
-                attendance,
-                hosting,
-                time: GameTime::NineThirty,
-            },
-        );
+    for (time, emote) in &alt_with_emotes {
+        for time_changing in rus(emote)? {
+            participants.modify(
+                time_changing.id,
+                move |ConfirmInfo {
+                          attendance,
+                          hosting,
+                          ..
+                      }| ConfirmInfo {
+                    attendance,
+                    hosting,
+                    time: time.clone(),
+                },
+            );
+        }
     }
     let data = encode(Embedded::EShadowrunConfirm(data))?;
     let host = host_priority(&participants);
@@ -232,10 +290,10 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         let weekday_to_str = fr_weekday_to_str(date.weekday());
         let day_to_str = fr_day_to_str(date);
         let month_to_str = fr_month_to_str(date);
-        let earliest = earliest(&participants);
+        let selected_time = hm24_format(&select_time(time, alt_times, &participants));
         m.content(format!(
             "Shadowrun : confirmation pour le {} {} {} à {} {}.",
-            weekday_to_str, day_to_str, month_to_str, earliest, host_nick
+            weekday_to_str, day_to_str, month_to_str, selected_time, host_nick
         ));
         m.embed(|e| {
             e.title("Shadowrun – Confirmation")
@@ -244,9 +302,9 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                     let mut mb = MessageBuilder::new();
                     for (user_id, info) in &participants {
                         match info.attendance {
-                            Attendance::Confirmed => mb.push("✅"),
-                            Attendance::Cancelled => mb.push("🚫"),
-                            Attendance::Pending => mb.push("⌛"),
+                            Confirmed => mb.push("✅"),
+                            Cancelled => mb.push("🚫"),
+                            Pending => mb.push("⌛"),
                         };
                         mb.mention(user_id).push(", ");
                     }
@@ -257,7 +315,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                         .push(" ")
                         .push_bold(month_to_str)
                         .push(" à ")
-                        .push_bold(earliest);
+                        .push_bold(selected_time);
                     if online {
                         mb.push(" en 💻 ").push_bold("ligne");
                     } else {
@@ -268,9 +326,14 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                     if !online {
                         mb.push(".\nAccueil : ").push_bold("🏠 possible 🚩 demandé");
                     }
-                    mb.push(".\nDécaler l’horaire : ")
-                        .push_bold("🕣 20h30 🕘 21h 🕤 21h30")
-                        .push(".");
+                    mb.push(".\nChanger l’horaire :");
+                    for (time, emote) in alt_with_emotes {
+                        mb.push(" ")
+                            .push(emote)
+                            .push(" ")
+                            .push_bold(hm24_format(&time));
+                    }
+                    mb.push(".");
                     mb
                 })
                 .footer(|f| f.text(data))
@@ -279,23 +342,33 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
     Ok(())
 }
 
-fn earliest(participants: &HashMap<UserId, ConfirmInfo>) -> &'static str {
-    match participants
+fn select_time(
+    default: NaiveTime,
+    alternatives: Vec<NaiveTime>,
+    participants: &HashMap<UserId, ConfirmInfo>,
+) -> NaiveTime {
+    let asked_times: HashSet<NaiveTime> = participants
         .iter()
-        .filter_map(|(_, info)| (info.attendance == Attendance::Confirmed).as_some(info.time))
-        .max()
-    {
-        Some(GameTime::NineThirty) => "21h30",
-        Some(GameTime::Nine) => "21h",
-        Some(GameTime::EightThirty) => "20h30",
-        _ => "20h",
-    }
+        .filter_map(
+            |(
+                _,
+                ConfirmInfo {
+                    attendance, time, ..
+                },
+            )| (attendance == &Confirmed).as_some(time),
+        )
+        .cloned()
+        .collect();
+    alternatives
+        .into_iter()
+        .rfind(|time| asked_times.contains(time))
+        .unwrap_or(default)
 }
 
 fn host_priority(participants: &HashMap<UserId, ConfirmInfo>) -> &UserId {
-    for offer in &[Hosting::Demanded, Hosting::Granted] {
+    for offer in &[Demanded, Granted] {
         let hosts = participants.iter().filter_map(|(id, info)| {
-            (info.attendance == Attendance::Confirmed && &info.hosting == offer).as_some(id)
+            (info.attendance == Confirmed && &info.hosting == offer).as_some(id)
         });
         for priority_host in HOST_PRIORITY {
             if let Some(host) = hosts.clone().find(|&h| h == priority_host) {
@@ -309,7 +382,7 @@ fn host_priority(participants: &HashMap<UserId, ConfirmInfo>) -> &UserId {
 struct ConfirmInfo {
     attendance: Attendance,
     hosting: Hosting,
-    time: GameTime,
+    time: NaiveTime,
 }
 
 #[derive(PartialEq)]
@@ -324,14 +397,6 @@ enum Hosting {
     Unspecified,
     Granted,
     Demanded,
-}
-
-#[derive(Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
-enum GameTime {
-    Eight,
-    EightThirty,
-    Nine,
-    NineThirty,
 }
 
 fn last_plan(ctx: &Context, base: &Message) -> ARes<Message> {

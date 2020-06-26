@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Sparky (debug)",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--no-default-features",
+                    "--features",
+                    "ytp"
+                ]
+            },
+            "cwd": "${workspaceFolder}",
+            "sourceLanguages": ["rust"],
+            "terminal": "integrated",
+            "env": {
+                "RUST_LOG": "info"
+            },
+            "expressions": "python"
+        }
+    ]
+}
