@@ -1,11 +1,13 @@
 use crate::error::{ARes, AVoid};
 use clap::{App, ArgMatches};
-use serenity::client::Context;
-use serenity::framework::standard::help_commands::with_embeds;
-use serenity::framework::standard::macros::help;
-use serenity::framework::standard::{Args, CommandGroup, CommandResult, HelpOptions};
-use serenity::model::channel::Message;
-use serenity::model::id::UserId;
+use serenity::{
+    client::Context,
+    framework::standard::help_commands::with_embeds,
+    framework::standard::macros::help,
+    framework::standard::{Args, CommandGroup, CommandResult, HelpOptions},
+    model::channel::Message,
+    model::id::UserId,
+};
 use std::collections::HashSet;
 
 #[help]

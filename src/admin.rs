@@ -1,19 +1,18 @@
-use crate::{error::wrap_cmd_err, ManagerKey};
-use anyhow::bail;
-use anyhow::Context as _;
+use crate::{error::wrap_cmd_err, ManagerKey, OWNER};
+use anyhow::{bail, Context as _};
 use serenity::{
     client::Context,
     framework::standard::{
         macros::{command, group},
         Args, CommandResult,
     },
-    model::channel::Message,
+    model::{id::ChannelId, channel::Message}, utils::{MessageBuilder, Colour},
 };
 
 #[group]
 #[prefix = "adm"]
 #[owners_only]
-#[commands(stop, clear, fail, crash)]
+#[commands(stop, clear, fail, crash, sample)]
 pub struct Admin;
 
 #[command]
@@ -73,4 +72,27 @@ fn fail() -> CommandResult {
 #[description = "Provoque délibérément un crash du bot, à des fins de débogage."]
 fn crash() -> CommandResult {
     panic!("panicking on purpose")
+}
+
+#[command]
+#[description = "Commande aux effets changeants pour de rapides tests"]
+fn sample(ctx: &mut Context) -> CommandResult {
+    let _ = ChannelId(455833075448807427).send_message(ctx, |m| {
+        m.embed(|e| {
+            e.title("Bienvenue chez Kitsunebi !")
+            .colour(Colour::ORANGE)
+            .thumbnail("https://cdn.discordapp.com/icons/587883211225563160/\
+    963cfb6277dbfbc14c25fb484801438d.webp")
+    .description(
+        MessageBuilder::new()
+        .push("___Kitsunebi (feu du renard) :__ Yōkai qui tire son nom des lanternes brillant \
+        dans la nuit dont la légende dit qu'elles proviennent d'un soupir de renard._\n\n")
+        .push("Bienvenue ")
+.mention(&OWNER)
+.push(" sur le Discord de la CL des ")
+.push_bold("Kitsunebi")
+.push(" !\n\nMerci de lire attentivement notre règlement !"))
+        })
+    });
+    Ok(())
 }

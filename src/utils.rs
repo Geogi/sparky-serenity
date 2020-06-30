@@ -1,10 +1,7 @@
 use crate::error::ARes;
 use anyhow::bail;
-use serenity::client::Context;
-use serenity::model::channel::Message;
-use std::borrow::Borrow;
-use std::collections::HashMap;
-use std::hash::Hash;
+use serenity::{client::Context, model::channel::Message};
+use std::{borrow::Borrow, collections::HashMap, hash::Hash};
 
 const FIND_MESSAGE_LIMIT: usize = 1000;
 

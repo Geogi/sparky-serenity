@@ -1,30 +1,39 @@
 // TODO: work in progress
 #![allow(dead_code, unused_variables)]
 
-use crate::error::wrap_cmd_err;
-use crate::help::{clap_bad_use, clap_help, clap_settings};
-use crate::utils::clap_name;
+use crate::{
+    error::wrap_cmd_err,
+    help::{clap_bad_use, clap_help, clap_settings},
+    utils::clap_name,
+};
 use anyhow::anyhow;
 use chrono::Duration;
 use clap::{App, Arg};
-use nom::branch::alt;
-use nom::bytes::complete::tag;
-use nom::character::complete::{char, digit1};
-use nom::combinator::{map, map_res, opt};
-use nom::multi::fold_many0;
-use nom::sequence::{delimited, tuple};
-use nom::IResult;
-use rand::distributions::Distribution;
-use rand::distributions::Uniform;
-use rand::{thread_rng, Rng};
-use serenity::client::Context;
-use serenity::framework::standard::macros::command;
-use serenity::framework::standard::{Args, CommandResult};
-use serenity::model::channel::Message;
-use serenity::utils::MessageBuilder;
-use std::cmp::{min, Ordering};
-use std::num::ParseIntError;
-use std::str::FromStr;
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::{char, digit1},
+    combinator::{map, map_res, opt},
+    multi::fold_many0,
+    sequence::{delimited, tuple},
+    IResult,
+};
+use rand::{
+    distributions::{Distribution, Uniform},
+    thread_rng, Rng,
+};
+use serenity::{
+    client::Context,
+    framework::standard::macros::command,
+    framework::standard::{Args, CommandResult},
+    model::channel::Message,
+    utils::MessageBuilder,
+};
+use std::{
+    cmp::{min, Ordering},
+    num::ParseIntError,
+    str::FromStr,
+};
 
 #[command]
 #[description = "Lance des dés.\n***ILC :** appelez avec `--help` \

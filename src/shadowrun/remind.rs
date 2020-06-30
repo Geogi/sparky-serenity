@@ -1,14 +1,18 @@
-use crate::error::{wrap_cmd_err, ARes};
-use crate::shadowrun::runners;
-use crate::state::{find_by_state, Embedded};
+use crate::{
+    error::{wrap_cmd_err, ARes},
+    shadowrun::runners,
+    state::{find_by_state, Embedded},
+};
 use anyhow::bail;
-use serenity::client::Context;
-use serenity::framework::standard::macros::command;
-use serenity::framework::standard::{Args, CommandResult};
-use serenity::model::channel::Message;
-use serenity::model::channel::ReactionType::Unicode;
-use serenity::model::id::UserId;
-use serenity::utils::MessageBuilder;
+use serenity::{
+    client::Context,
+    framework::standard::macros::command,
+    framework::standard::{Args, CommandResult},
+    model::channel::Message,
+    model::channel::ReactionType::Unicode,
+    model::id::UserId,
+    utils::MessageBuilder,
+};
 use std::collections::HashSet;
 
 #[command]
