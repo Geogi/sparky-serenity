@@ -24,7 +24,6 @@ use serenity::model::channel::ReactionType::Unicode;
 use serenity::model::channel::{Message, Reaction};
 use serenity::model::guild::Role;
 use serenity::model::id::UserId;
-use serenity::model::misc::Mentionable;
 use serenity::model::user::User;
 use serenity::utils::MessageBuilder;
 use std::collections::{HashMap, HashSet};
@@ -145,8 +144,17 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
             time: time_to_serial(time)?,
             alt_times,
         };
+        std::thread::sleep(std::time::Duration::from_secs(2));
         let mut msg = msg.channel_id.send_message(ctx, |m| {
-            m.embed(|e| e.description("En préparation..."))
+            m.content({
+                    let mut mb = MessageBuilder::new();
+                    for participant in &participants {
+                        mb.mention(participant);
+                        mb.push(" ");
+                    }
+                    mb
+                })
+            .embed(|e| e.description("En préparation..."))
                 .reactions(reactions)
         })?;
         refresh(ctx, &mut msg, data).context("refresh embed")?;
@@ -284,20 +292,19 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
     }
     let data = encode(Embedded::EShadowrunConfirm(data))?;
     let host = host_priority(&participants);
-    let host_nick = if online {
-        "en ligne".to_owned()
-    } else {
-        format!("chez {}", host.mention())
-    };
     msg.edit(ctx, |m| {
         let weekday_to_str = fr_weekday_to_str(date.weekday());
         let day_to_str = fr_day_to_str(date);
         let month_to_str = fr_month_to_str(date);
         let selected_time = hm24_format(&select_time(time, alt_times, &participants));
-        m.content(format!(
-            "Shadowrun : confirmation pour le {} {} {} à {} {}.",
-            weekday_to_str, day_to_str, month_to_str, selected_time, host_nick
-        ));
+        m.content({
+            let mut mb = MessageBuilder::new();
+            for (user_id, _) in &participants {
+                mb.mention(user_id);
+                mb.push(" ");
+            }
+            mb
+        });
         m.embed(|e| {
             e.title("Shadowrun – Confirmation")
                 .colour(runner.colour)
