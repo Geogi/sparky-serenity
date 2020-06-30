@@ -1,6 +1,6 @@
 [package]
 name = "sparky"
-version = "3.1.1"
+version = "3.2.0-dev"
 authors = ["Paul Blouët <paul@paulblouet.fr>"]
 edition = "2018"
 
