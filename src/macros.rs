@@ -22,3 +22,20 @@ macro_rules! match_guild {
         pub const $name: $typ = $typ($ytp);
     };
 }
+
+macro_rules! handle {
+    ($event:literal for $ctx:ident, $arg:expr => {$($name:literal => $func:expr),*,}
+     in $chan:expr) => {
+        let inner = || -> $crate::error::AVoid {
+            $(
+            $func(&$ctx, &$arg).context($name)?;
+            )*
+            Ok(())
+        };
+        log_handler_err(
+            &$ctx,
+            $chan,
+            inner().context(format!("`{}`", $event)),
+        );
+    };
+}

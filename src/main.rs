@@ -8,6 +8,7 @@ mod edf;
 mod error;
 mod handler;
 mod help;
+mod kitsu;
 mod shadowrun;
 mod state;
 mod utils;

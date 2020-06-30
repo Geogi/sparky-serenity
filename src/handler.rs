@@ -1,32 +1,23 @@
-use crate::error::{log_handler_err, AVoid};
+use crate::error::{log_handler_err};
 use crate::shadowrun::{shadowrun_reaction_add, shadowrun_reaction_remove};
-use anyhow::Context as _;
+use anyhow::{Context as _};
 use serenity::client::{Context, EventHandler};
-use serenity::model::channel::Reaction;
+use serenity::model::{id::GuildId, channel::Reaction, guild::Member};
 
 pub struct Handler;
 impl EventHandler for Handler {
     fn reaction_add(&self, ctx: Context, add_reaction: Reaction) {
-        fn inner(ctx: &Context, add_reaction: &Reaction) -> AVoid {
-            shadowrun_reaction_add(ctx, add_reaction).context("shadowrun")?;
-            Ok(())
-        }
-        log_handler_err(
-            &ctx,
-            add_reaction.channel_id,
-            inner(&ctx, &add_reaction).context("`reaction_add`"),
-        );
+        handle!("reaction_add" for ctx, add_reaction => {
+            "shadowrun" => shadowrun_reaction_add,
+        } in add_reaction.channel_id);
     }
 
     fn reaction_remove(&self, ctx: Context, removed_reaction: Reaction) {
-        fn inner(ctx: &Context, removed_reaction: &Reaction) -> AVoid {
-            shadowrun_reaction_remove(ctx, removed_reaction).context("shadowrun")?;
-            Ok(())
-        }
-        log_handler_err(
-            &ctx,
-            removed_reaction.channel_id,
-            inner(&ctx, &removed_reaction).context("`reaction_remove`"),
-        );
+        handle!("reaction_remove" for ctx, removed_reaction => {
+            "shadowrun" => shadowrun_reaction_remove,
+        } in removed_reaction.channel_id);
+    }
+
+    fn guild_member_addition(&self, _ctx: Context, _guild_id: GuildId, _new_member: Member) {
     }
 }
