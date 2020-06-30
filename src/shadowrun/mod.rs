@@ -3,17 +3,17 @@ pub mod plan;
 pub mod remind;
 pub mod roll;
 
-use crate::error::{ARes, AVoid};
 use crate::shadowrun::confirm::{confirm_react, CONFIRM_COMMAND};
 use crate::shadowrun::plan::{plan_react, PLAN_COMMAND};
 use crate::shadowrun::remind::REMIND_COMMAND;
 use crate::shadowrun::roll::ROLL_COMMAND;
-use anyhow::{anyhow, Context as _};
+use anyhow::{anyhow, Error, Context as _};
 use serenity::client::Context;
 use serenity::framework::standard::macros::group;
 use serenity::model::channel::Reaction;
 use serenity::model::guild::Role;
 use serenity::model::id::{RoleId, UserId};
+use fehler::throws;
 
 match_guild! {
 pub const RUNNER: RoleId = match {
@@ -26,19 +26,14 @@ pub const RUNNER: RoleId = match {
 #[commands(plan, confirm, remind, roll)]
 pub struct Shadowrun;
 
-pub fn shadowrun_reaction_add(ctx: &Context, add_reaction: &Reaction) -> AVoid {
-    plan_react(ctx, add_reaction).context("plan")?;
-    confirm_react(ctx, add_reaction).context("confirm")?;
-    Ok(())
+#[throws]
+pub fn shadowrun_reaction(ctx: &Context, reaction: &Reaction) {
+    plan_react(ctx, reaction).context("plan")?;
+    confirm_react(ctx, reaction).context("confirm")?;
 }
 
-pub fn shadowrun_reaction_remove(ctx: &Context, removed_reaction: &Reaction) -> AVoid {
-    plan_react(ctx, removed_reaction).context("plan")?;
-    confirm_react(ctx, removed_reaction).context("confirm")?;
-    Ok(())
-}
-
-pub fn runners(ctx: &Context) -> ARes<Vec<UserId>> {
+#[throws]
+pub fn runners(ctx: &Context) -> Vec<UserId> {
     let runner: Role = RUNNER
         .to_role_cached(ctx)
         .ok_or_else(|| anyhow!("no role"))?;
@@ -54,5 +49,5 @@ pub fn runners(ctx: &Context) -> ARes<Vec<UserId>> {
             None
         }
     });
-    Ok(runners.cloned().collect())
+    runners.cloned().collect()
 }
