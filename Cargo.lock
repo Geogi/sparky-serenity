@@ -1256,7 +1256,7 @@ dependencies = [
 
 [[package]]
 name = "sparky"
-version = "3.2.0-dev"
+version = "3.2.0"
 dependencies = [
  "Inflector",
  "anyhow",

@@ -6,7 +6,8 @@ use serenity::{
         macros::{command, group},
         Args, CommandResult,
     },
-    model::{id::ChannelId, channel::Message}, utils::{MessageBuilder, Colour},
+    model::{channel::Message, id::ChannelId},
+    utils::{Colour, MessageBuilder},
 };
 
 #[group]
