@@ -285,7 +285,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
                       }| ConfirmInfo {
                     attendance,
                     hosting,
-                    time: time.clone(),
+                    time: *time,
                 },
             );
         }
@@ -299,7 +299,7 @@ fn refresh(ctx: &Context, msg: &mut Message, data: ShadowrunConfirm) -> AVoid {
         let selected_time = hm24_format(&select_time(time, alt_times, &participants));
         m.content({
             let mut mb = MessageBuilder::new();
-            for (user_id, _) in &participants {
+            for user_id in participants.keys() {
                 mb.mention(user_id);
                 mb.push(" ");
             }
