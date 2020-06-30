@@ -27,8 +27,18 @@ pub fn plan(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult 
     wrap_cmd_err(|| {
         let ctx = &*ctx;
         let first_day = msg.timestamp.with_timezone(&TZ_DEFAULT).date();
+        let runners = runners(ctx)?;
         let mut base = msg.channel_id.send_message(ctx, |m| {
-            m.embed(|e| e.description("En préparation...")).reactions(
+            m
+            .content({
+                let mut mb = MessageBuilder::new();
+                for runner in &runners {
+                    mb.mention(runner);
+                    mb.push(" ");
+                }
+                mb
+            })
+            .embed(|e| e.description("En préparation...")).reactions(
                 (0..=6)
                     .map(|inc| fr_weekday_to_emote((first_day + Duration::days(inc)).weekday()))
                     .chain(vec!["🚫", "💻"]),
@@ -91,7 +101,15 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
     let exhaustive = runners.iter().all(|id| voted.contains(id));
     let data = encode(Embedded::EShadowrunPlan(ShadowrunPlan))?;
     msg.edit(ctx, |m| {
-        m.embed(|e| {
+        m.content({
+            let mut mb = MessageBuilder::new();
+            for runner in &runners {
+                mb.mention(runner);
+                mb.push(" ");
+            }
+            mb
+        })
+        .embed(|e| {
             e.title("Shadowrun – Prochaine séance")
                 .colour(runner.colour)
                 .description({
