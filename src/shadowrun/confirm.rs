@@ -147,15 +147,15 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         std::thread::sleep(std::time::Duration::from_secs(2));
         let mut msg = msg.channel_id.send_message(ctx, |m| {
             m.content({
-                    let mut mb = MessageBuilder::new();
-                    for participant in &participants {
-                        mb.mention(participant);
-                        mb.push(" ");
-                    }
-                    mb
-                })
+                let mut mb = MessageBuilder::new();
+                for participant in &participants {
+                    mb.mention(participant);
+                    mb.push(" ");
+                }
+                mb
+            })
             .embed(|e| e.description("En préparation..."))
-                .reactions(reactions)
+            .reactions(reactions)
         })?;
         refresh(ctx, &mut msg, data).context("refresh embed")?;
         Ok(())

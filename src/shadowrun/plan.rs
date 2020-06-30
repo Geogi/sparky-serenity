@@ -29,8 +29,7 @@ pub fn plan(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult 
         let first_day = msg.timestamp.with_timezone(&TZ_DEFAULT).date();
         let runners = runners(ctx)?;
         let mut base = msg.channel_id.send_message(ctx, |m| {
-            m
-            .content({
+            m.content({
                 let mut mb = MessageBuilder::new();
                 for runner in &runners {
                     mb.mention(runner);
@@ -38,7 +37,8 @@ pub fn plan(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult 
                 }
                 mb
             })
-            .embed(|e| e.description("En préparation...")).reactions(
+            .embed(|e| e.description("En préparation..."))
+            .reactions(
                 (0..=6)
                     .map(|inc| fr_weekday_to_emote((first_day + Duration::days(inc)).weekday()))
                     .chain(vec!["🚫", "💻"]),
