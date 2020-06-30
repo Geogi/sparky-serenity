@@ -1,18 +1,16 @@
-use crate::edf::EdfSing;
-use crate::error::ARes;
-use crate::shadowrun::confirm::ShadowrunConfirm;
-use crate::shadowrun::plan::ShadowrunPlan;
-use crate::utils::{find_message_with, find_message_with_limit};
-use base64::write::EncoderWriter;
-use base64::STANDARD;
+use crate::{
+    edf::EdfSing,
+    error::ARes,
+    shadowrun::confirm::ShadowrunConfirm,
+    shadowrun::plan::ShadowrunPlan,
+    utils::{find_message_with, find_message_with_limit},
+};
+use base64::{write::EncoderWriter, STANDARD};
 use bincode::{deserialize, serialize};
 use boolinator::Boolinator;
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
-use flate2::Compression;
+use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use serde::{Deserialize, Serialize};
-use serenity::client::Context;
-use serenity::model::channel::Message;
+use serenity::{client::Context, model::channel::Message};
 use std::io::{Read, Write};
 
 const CHUNK_LEN: usize = 60;

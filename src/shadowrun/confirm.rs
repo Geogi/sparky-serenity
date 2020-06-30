@@ -1,33 +1,37 @@
-use crate::date::{
-    fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote,
-    fr_weekday_to_str, hm24_format, parse_time_emote_like, time_emote, TZ_DEFAULT,
+use crate::{
+    date::{
+        fr_day_to_str, fr_month_to_str, fr_weekday_from_shorthand, fr_weekday_to_emote,
+        fr_weekday_to_str, hm24_format, parse_time_emote_like, time_emote, TZ_DEFAULT,
+    },
+    discord::{pop_self, reaction_is_own},
+    error::{wrap_cmd_err, ARes, AVoid},
+    help::{clap_help, clap_settings},
+    shadowrun::RUNNER,
+    state::{encode, Embedded},
+    state::{extract, find_by_state},
+    utils::{clap_name, MapExt},
 };
-use crate::discord::{pop_self, reaction_is_own};
-use crate::error::{wrap_cmd_err, ARes, AVoid};
-use crate::help::{clap_help, clap_settings};
-use crate::shadowrun::RUNNER;
-use crate::state::{encode, Embedded};
-use crate::state::{extract, find_by_state};
-use crate::utils::{clap_name, MapExt};
-use anyhow::Error;
-use anyhow::{anyhow, bail, Context as _};
+use anyhow::{anyhow, bail, Context as _, Error};
 use boolinator::Boolinator;
-use chrono::Duration;
-use chrono::{Date, Datelike, NaiveTime, TimeZone, Timelike, Weekday};
+use chrono::{Date, Datelike, Duration, NaiveTime, TimeZone, Timelike, Weekday};
 use clap::{App, Arg};
 use fehler::throws;
 use serde::{Deserialize, Serialize};
-use serenity::client::Context;
-use serenity::framework::standard::macros::command;
-use serenity::framework::standard::{Args, CommandResult};
-use serenity::model::channel::ReactionType::Unicode;
-use serenity::model::channel::{Message, Reaction};
-use serenity::model::guild::Role;
-use serenity::model::id::UserId;
-use serenity::model::user::User;
-use serenity::utils::MessageBuilder;
-use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
+use serenity::{
+    client::Context,
+    framework::standard::macros::command,
+    framework::standard::{Args, CommandResult},
+    model::channel::ReactionType::Unicode,
+    model::channel::{Message, Reaction},
+    model::guild::Role,
+    model::id::UserId,
+    model::user::User,
+    utils::MessageBuilder,
+};
+use std::{
+    collections::{HashMap, HashSet},
+    convert::TryFrom,
+};
 use Attendance::{Cancelled, Confirmed, Pending};
 use Hosting::{Demanded, Granted, Unspecified};
 
@@ -162,7 +166,7 @@ pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     })
 }
 
-pub fn confirm_react(ctx: &Context, reaction: &Reaction) -> AVoid {
+pub fn react(ctx: &Context, reaction: &Reaction) -> AVoid {
     if reaction_is_own(ctx, reaction)? {
         return Ok(());
     }

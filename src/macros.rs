@@ -24,8 +24,7 @@ macro_rules! match_guild {
 }
 
 macro_rules! handle {
-    ($event:literal for $ctx:ident, $arg:expr => {$($name:literal => $func:expr),*,}
-     in $chan:expr) => {
+    ($event:literal for $ctx:ident, $arg:expr => {$($name:literal => $func:expr),*,}) => {
         let inner = || -> $crate::error::AVoid {
             $(
             $func(&$ctx, &$arg).context($name)?;
@@ -34,7 +33,6 @@ macro_rules! handle {
         };
         log_handler_err(
             &$ctx,
-            $chan,
             inner().context(format!("`{}`", $event)),
         );
     };

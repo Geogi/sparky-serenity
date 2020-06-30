@@ -1,16 +1,20 @@
-use crate::date::TZ_DEFAULT;
-use crate::discord::delete_command_ifp;
-use crate::error::wrap_cmd_err;
-use crate::state::{encode, find_by_state_limit, Embedded};
+use crate::{
+    date::TZ_DEFAULT,
+    discord::delete_command_ifp,
+    error::wrap_cmd_err,
+    state::{encode, find_by_state_limit, Embedded},
+};
 use anyhow::{bail, Context as _};
 use chrono::{Duration, Timelike, Utc};
 use serde::{Deserialize, Serialize};
-use serenity::client::Context;
-use serenity::framework::standard::macros::{command, group};
-use serenity::framework::standard::CommandResult;
-use serenity::model::channel::Message;
-use serenity::model::id::UserId;
-use serenity::utils::{Colour, MessageBuilder};
+use serenity::{
+    client::Context,
+    framework::standard::macros::{command, group},
+    framework::standard::CommandResult,
+    model::channel::Message,
+    model::id::UserId,
+    utils::{Colour, MessageBuilder},
+};
 
 #[group]
 #[prefix = "edf"]

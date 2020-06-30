@@ -2,14 +2,17 @@ use crate::OWNER;
 use anyhow::anyhow;
 use chrono::{DateTime, Duration, Utc};
 use log::info;
-use serenity::client::Context;
-use serenity::framework::standard::{CommandError, CommandResult};
-use serenity::model::channel::Message;
-use serenity::model::id::ChannelId;
-use serenity::utils::MessageBuilder;
+use serenity::{
+    client::Context,
+    framework::standard::{CommandError, CommandResult},
+    model::channel::Message,
+    model::id::ChannelId,
+    utils::MessageBuilder,
+};
 use typemap::Key;
 
 const HANDLER_REPORT_INTERVAL_SECONDS: i64 = 20;
+const ERROR_CHAN: ChannelId = ChannelId(727584970520002651);
 
 pub type AVoid = anyhow::Result<()>;
 pub type ARes<T> = anyhow::Result<T>;
@@ -29,11 +32,12 @@ pub fn log_cmd_err(ctx: &mut Context, msg: &Message, cmd: &str, res: CommandResu
         let chained = anyhow!("{}", err).context(format!("Échec de la commande `{}`", cmd));
         info!("{:#}", chained);
         // notifying through Discord is best efforts: result is ignored
-        let _ = msg.reply(ctx, format!("{:#}", chained));
+        let _ = msg.reply(ctx, "La commande a échoué, nous travaillons dessus !");
+        let _ = ERROR_CHAN.send_message(ctx, |m| m.content(format!("{:#}", chained)));
     }
 }
 
-pub fn log_handler_err(ctx: &Context, chan_id: ChannelId, res: AVoid) {
+pub fn log_handler_err(ctx: &Context, res: AVoid) {
     if let Err(err) = res {
         let chained = err.context("Erreur lors du traitement d’un événement");
         info!("{:#}", chained);
@@ -46,7 +50,7 @@ pub fn log_handler_err(ctx: &Context, chan_id: ChannelId, res: AVoid) {
         };
         if do_report {
             // notifying through Discord is best efforts: result is ignored
-            let _ = chan_id.send_message(ctx, |m| {
+            let _ = ERROR_CHAN.send_message(ctx, |m| {
                 m.content(
                     MessageBuilder::new()
                         .mention(&OWNER)

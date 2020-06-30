@@ -1,3 +1,27 @@
+use crate::{
+    admin::ADMIN_GROUP,
+    edf::EDF_GROUP,
+    error::{log_cmd_err, wrap_cmd_err, AVoid},
+    handler::Handler,
+    help::MY_HELP,
+    shadowrun::roll::roll,
+    shadowrun::SHADOWRUN_GROUP,
+};
+use dotenv::dotenv;
+use log::info;
+use serenity::{
+    client::{bridge::gateway::ShardManager, Client, Context},
+    framework::standard::{
+        macros::{command, group},
+        Args, CommandResult, StandardFramework,
+    },
+    model::channel::Message,
+    model::id::UserId,
+    prelude::Mutex as SerenityMutex,
+};
+use std::{collections::HashSet, env, sync::Arc};
+use typemap::Key;
+
 #[macro_use]
 mod macros;
 
@@ -12,29 +36,6 @@ mod kitsu;
 mod shadowrun;
 mod state;
 mod utils;
-
-use crate::admin::ADMIN_GROUP;
-use crate::edf::EDF_GROUP;
-use crate::error::{log_cmd_err, wrap_cmd_err, AVoid};
-use crate::handler::Handler;
-use crate::help::MY_HELP;
-use crate::shadowrun::roll::roll;
-use crate::shadowrun::SHADOWRUN_GROUP;
-use dotenv::dotenv;
-use log::info;
-use serenity::client::bridge::gateway::ShardManager;
-use serenity::client::{Client, Context};
-use serenity::framework::standard::{
-    macros::{command, group},
-    Args, CommandResult, StandardFramework,
-};
-use serenity::model::channel::Message;
-use serenity::model::id::UserId;
-use serenity::prelude::Mutex as SerenityMutex;
-use std::collections::HashSet;
-use std::env;
-use std::sync::Arc;
-use typemap::Key;
 
 #[allow(clippy::unreadable_literal)]
 const OWNER: UserId = UserId(190183362294579211);

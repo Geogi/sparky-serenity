@@ -1,21 +1,23 @@
-use crate::date::{
-    fr_day_to_str, fr_month_to_str, fr_weekday_to_emote, fr_weekday_to_str, TZ_DEFAULT,
+use crate::{
+    date::{fr_day_to_str, fr_month_to_str, fr_weekday_to_emote, fr_weekday_to_str, TZ_DEFAULT},
+    discord::{pop_self, reaction_is_own},
+    error::{wrap_cmd_err, AVoid},
+    shadowrun::{runners, RUNNER},
+    state::{encode, extract, Embedded},
 };
-use crate::discord::{pop_self, reaction_is_own};
-use crate::error::{wrap_cmd_err, AVoid};
-use crate::shadowrun::{runners, RUNNER};
-use crate::state::{encode, extract, Embedded};
 use anyhow::anyhow;
 use chrono::{Datelike, Duration};
 use inflector::Inflector;
 use serde::{Deserialize, Serialize};
-use serenity::client::Context;
-use serenity::framework::standard::macros::command;
-use serenity::framework::standard::{Args, CommandResult};
-use serenity::model::channel::ReactionType::Unicode;
-use serenity::model::channel::{Message, Reaction};
-use serenity::model::guild::Role;
-use serenity::utils::MessageBuilder;
+use serenity::{
+    client::Context,
+    framework::standard::macros::command,
+    framework::standard::{Args, CommandResult},
+    model::channel::ReactionType::Unicode,
+    model::channel::{Message, Reaction},
+    model::guild::Role,
+    utils::MessageBuilder,
+};
 use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize)]
@@ -49,7 +51,7 @@ pub fn plan(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult 
     })
 }
 
-pub fn plan_react(ctx: &Context, reaction: &Reaction) -> AVoid {
+pub fn react(ctx: &Context, reaction: &Reaction) -> AVoid {
     if reaction_is_own(ctx, reaction)? {
         return Ok(());
     }

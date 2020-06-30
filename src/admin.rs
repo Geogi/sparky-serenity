@@ -1,6 +1,5 @@
 use crate::{error::wrap_cmd_err, ManagerKey};
-use anyhow::bail;
-use anyhow::Context as _;
+use anyhow::{bail, Context as _};
 use serenity::{
     client::Context,
     framework::standard::{
