@@ -10,10 +10,25 @@ env:
   HOST: base-micro-2
 
 jobs:
+  draft-release:
+    name: Draft Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            # CHANGES
+            * First change
+          draft: true
+
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/cargo@v1
