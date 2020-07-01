@@ -1,4 +1,4 @@
-macro_rules! match_guild {
+macro_rules! match_env {
     (const $name:ident: &str = match { prod => $prod:expr, test => $test:expr, }) => {
         #[cfg(feature = "prod")]
         const $name: &str = $prod;

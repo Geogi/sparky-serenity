@@ -15,7 +15,7 @@ pub mod plan;
 pub mod remind;
 pub mod roll;
 
-match_guild! {
+match_env! {
 pub const RUNNER: RoleId = match {
     prod => 293393770941251584,
     test => 679702431222726715,

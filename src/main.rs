@@ -37,7 +37,7 @@ mod utils;
 #[allow(clippy::unreadable_literal)]
 const OWNER: UserId = UserId(190183362294579211);
 
-match_guild! {
+match_env! {
 const PREFIX: &str = match {
     prod => "!",
     test => "?",
