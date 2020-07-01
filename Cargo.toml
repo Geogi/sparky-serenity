@@ -26,6 +26,6 @@ serenity = "0.8.0"
 typemap = "0.3.3"
 
 [features]
-default = ["exylobby"]
-exylobby = []
-ytp = []
+default = ["prod"]
+prod = []
+test = []

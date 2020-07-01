@@ -17,8 +17,8 @@ pub mod roll;
 
 match_guild! {
 pub const RUNNER: RoleId = match {
-    exylobby => 293393770941251584,
-    ytp => 679702431222726715,
+    prod => 293393770941251584,
+    test => 679702431222726715,
 }}
 
 #[group]

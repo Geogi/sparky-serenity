@@ -42,8 +42,8 @@ const OWNER: UserId = UserId(190183362294579211);
 
 match_guild! {
 const PREFIX: &str = match {
-    exylobby => "!",
-    ytp => "?",
+    prod => "!",
+    test => "?",
 }}
 
 struct ManagerKey;
