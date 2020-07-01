@@ -6,6 +6,7 @@ use crate::{
     handler::Handler,
     help::MY_HELP,
     shadowrun::SHADOWRUN_GROUP,
+    kitsu::KITSU_GROUP,
 };
 use dotenv::dotenv;
 use log::info;
@@ -67,6 +68,7 @@ fn main() -> AVoid {
             .group(&ADMIN_GROUP)
             .group(&EDF_GROUP)
             .group(&GENERAL_GROUP)
+            .group(&KITSU_GROUP)
             .group(&SHADOWRUN_GROUP)
             .help(&MY_HELP),
     );
@@ -88,8 +90,9 @@ fn main() -> AVoid {
 }
 
 shortcuts! {
-    (r, simple) match {
+    (r, simple, parse) match {
         r => shadowrun::roll::roll,
         simple => general::simple,
+        parse => kitsu::parse::parse,
     }
 }

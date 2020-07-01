@@ -23,6 +23,7 @@ pub const RUNNER: RoleId = match {
 
 #[group]
 #[prefix = "sr"]
+#[description = "Commandes liées au jeu de rôles papier Shadowrun."]
 #[commands(plan, confirm, remind, roll)]
 pub struct Shadowrun;
 
