@@ -24,8 +24,8 @@ macro_rules! match_guild {
 }
 
 macro_rules! handle {
-    ($event:literal for $ctx:ident, $arg:expr => {$($name:literal => $func:expr),*,}) => {
-        let inner = || -> $crate::error::AVoid {
+    ($event:literal for $ctx:ident, $arg:expr => {$($name:literal => $func:expr),*$(,)?}) => {
+        let inner = || -> crate::error::AVoid {
             $(
             $func(&$ctx, &$arg).context($name)?;
             )*
@@ -35,5 +35,26 @@ macro_rules! handle {
             &$ctx,
             inner().context(format!("`{}`", $event)),
         );
+    };
+}
+
+macro_rules! shortcuts {
+    ($shorts:tt match {$($short:ident => $full:path),*$(,)?}) => {
+        #[serenity::framework::standard::macros::group]
+        #[commands $shorts]
+        struct Shortcut;
+
+        $(
+            #[serenity::framework::standard::macros::command]
+            #[help_available(false)]
+            fn $short(
+                _ctx: &mut serenity::client::Context,
+                _msg: &serenity::model::channel::Message,
+                _args: serenity::framework::standard::Args
+            ) -> serenity::framework::standard::CommandResult
+            {
+                $full(_ctx, _msg, _args)
+            }
+        )*
     };
 }
