@@ -1,4 +1,4 @@
-use crate::kitsu::parse::PARSE_COMMAND;
+use crate::kitsu::parse::BESTLOGS_COMMAND;
 use anyhow::Error;
 use fehler::throws;
 use serenity::{
@@ -14,7 +14,7 @@ const GUILD_ID: GuildId = GuildId(587883211225563160);
 
 #[group]
 #[prefix = "ff"]
-#[commands(parse)]
+#[commands(bestlogs)]
 pub struct Kitsu;
 
 #[throws]

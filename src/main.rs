@@ -90,9 +90,9 @@ fn main() -> AVoid {
 }
 
 shortcuts! {
-    (r, simple, parse) match {
+    (r, simple, bestlogs) match {
         r => shadowrun::roll::roll,
         simple => general::simple,
-        parse => kitsu::parse::parse,
+        bestlogs => kitsu::parse::bestlogs,
     }
 }
