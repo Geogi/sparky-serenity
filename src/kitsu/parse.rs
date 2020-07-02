@@ -135,7 +135,7 @@ pub fn bestlogs(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult 
 }
 
 fn char_name(input: &str) -> IResult<&str, &str> {
-    let end = input.find(|c: char| !c.is_alpha() && ![' ', '\''].contains(&c));
+    let end = input.find(|c: char| !c.is_alpha() && ![' ', '\'', '-'].contains(&c));
     let (matched, rest) = if let Some(end) = end {
         input.split_at(end)
     } else {
