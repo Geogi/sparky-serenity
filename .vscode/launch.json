@@ -10,7 +10,7 @@
                     "build",
                     "--no-default-features",
                     "--features",
-                    "ytp"
+                    "test"
                 ]
             },
             "cwd": "${workspaceFolder}",

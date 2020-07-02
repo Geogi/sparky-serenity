@@ -9,7 +9,6 @@ use serenity::{
     model::id::ChannelId,
     utils::MessageBuilder,
 };
-use typemap::Key;
 
 const HANDLER_REPORT_INTERVAL_SECONDS: i64 = 20;
 const ERROR_CHAN: ChannelId = ChannelId(727584970520002651);
@@ -18,7 +17,7 @@ pub type AVoid = anyhow::Result<()>;
 pub type ARes<T> = anyhow::Result<T>;
 
 pub struct LastHandlerReportKey;
-impl Key for LastHandlerReportKey {
+impl typemap::Key for LastHandlerReportKey {
     type Value = DateTime<Utc>;
 }
 

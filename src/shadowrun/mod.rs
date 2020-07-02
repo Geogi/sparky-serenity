@@ -15,14 +15,15 @@ pub mod plan;
 pub mod remind;
 pub mod roll;
 
-match_guild! {
+match_env! {
 pub const RUNNER: RoleId = match {
-    exylobby => 293393770941251584,
-    ytp => 679702431222726715,
+    prod => 293393770941251584,
+    test => 679702431222726715,
 }}
 
 #[group]
 #[prefix = "sr"]
+#[description = "Commandes liées au jeu de rôles papier Shadowrun."]
 #[commands(plan, confirm, remind, roll)]
 pub struct Shadowrun;
 
