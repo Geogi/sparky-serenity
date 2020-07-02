@@ -22,9 +22,8 @@ jobs:
           tag_name: ${{ github.ref }}
           release_name: ${{ github.ref }}
           body: |
-            # CHANGES
+            # Changes
             * First change
-          draft: true
 
   deploy:
     name: Deploy
