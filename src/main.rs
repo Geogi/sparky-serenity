@@ -17,7 +17,6 @@ use serenity::{
     prelude::Mutex as SerenityMutex,
 };
 use std::{collections::HashSet, env, sync::Arc};
-use typemap::Key;
 
 #[macro_use]
 mod macros;
@@ -30,6 +29,7 @@ mod error;
 mod general;
 mod handler;
 mod help;
+mod http;
 mod kitsu;
 mod shadowrun;
 mod state;
@@ -45,7 +45,7 @@ const PREFIX: &str = match {
 }}
 
 struct ManagerKey;
-impl Key for ManagerKey {
+impl typemap::Key for ManagerKey {
     type Value = Arc<SerenityMutex<ShardManager>>;
 }
 

@@ -1,7 +1,10 @@
 use serenity::{client::Context, framework::standard::{Args, macros::command, CommandResult}, model::channel::Message, utils::MessageBuilder};
 use crate::error::wrap_cmd_err;
 use serde::Deserialize;
-use anyhow::Context as _;
+use anyhow::{anyhow, Context as _};
+use reqwest::Url;
+
+const FFLOGS_API_V1: &str = "https://www.fflogs.com/v1";
 
 #[derive(Deserialize)]
 #[allow(dead_code, non_snake_case)]
@@ -31,9 +34,18 @@ pub fn parse(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult {
     wrap_cmd_err(|| {
         let ctx = &*ctx;
         let api_key = std::env::var("FFLOG_V1_KEY").context("no fflogs api key in env")?;
-        let url = format!("https://www.fflogs.com:443/v1/rankings/character/\
-        Mendosa%20Hayashi/Omega/EU?api_key={}", api_key);
-        let body = reqwest::blocking::get(&url)?.text()?;
+        let api_url = Url::parse(FFLOGS_API_V1)?;
+        let mut url = api_url.clone();
+        url
+        .path_segments_mut().map_err(|_| anyhow!("cannot-be-a-base"))?
+        .push("rankings")
+        .push("character")
+        .push("Mendosa Hayashi")
+        .push("Omega")
+        .push("EU");
+        url
+        .query_pairs_mut().append_pair("api_key", &api_key);
+        let body = crate::http::get(ctx, url)?.text()?;
         let rankings: Vec<Ranking> = serde_json::from_str(&body)?;
         let mut mb = MessageBuilder::new();
         for r in rankings {
