@@ -12,7 +12,7 @@ impl typemap::Key for HttpKey {
 pub fn get(ctx: &Context, url: impl IntoUrl) -> Response {
     let create = {
         let data_read = ctx.data.read();
-        data_read.get::<HttpKey>().is_none()
+        !data_read.contains::<HttpKey>()
     };
     if create {
         let mut data_write = ctx.data.write();
