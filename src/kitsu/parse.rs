@@ -60,7 +60,7 @@ struct Parse {
     percentile: f64,
     ilvlKeyOrPatch: f64,
     total: f64,
-    estimated: bool
+    estimated: bool,
 }
 
 #[command]
@@ -99,11 +99,24 @@ pub fn bestlogs(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult 
         let all_parses: Vec<Parse> = serde_json::from_str(&body)?;
         let mut best_by_encounter = HashMap::new();
         for parse in &all_parses {
-            if best_by_encounter.get(&(parse.encounterID, parse.difficulty)).map(|(_, p)| p < &parse.percentile).unwrap_or(true) {
-                best_by_encounter.insert((parse.encounterID, parse.difficulty), (parse.reportID.clone(), parse.percentile));
+            if best_by_encounter
+                .get(&(parse.encounterID, parse.difficulty))
+                .map(|(_, p)| p < &parse.percentile)
+                .unwrap_or(true)
+            {
+                best_by_encounter.insert(
+                    (parse.encounterID, parse.difficulty),
+                    (parse.reportID.clone(), parse.percentile),
+                );
             }
         }
-        let best_logs = all_parses.into_iter().filter(|p| best_by_encounter.get(&(p.encounterID, p.difficulty)).unwrap().0 == p.reportID);
+        let best_logs = all_parses.into_iter().filter(|p| {
+            best_by_encounter
+                .get(&(p.encounterID, p.difficulty))
+                .unwrap()
+                .0
+                == p.reportID
+        });
         let mut mb = MessageBuilder::new();
         for log in best_logs {
             mb.push(&log.encounterName);
