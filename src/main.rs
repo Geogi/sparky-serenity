@@ -5,8 +5,8 @@ use crate::{
     general::GENERAL_GROUP,
     handler::Handler,
     help::MY_HELP,
-    shadowrun::SHADOWRUN_GROUP,
     kitsu::KITSU_GROUP,
+    shadowrun::SHADOWRUN_GROUP,
 };
 use dotenv::dotenv;
 use log::info;

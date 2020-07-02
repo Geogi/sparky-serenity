@@ -1,10 +1,11 @@
+use crate::kitsu::parse::PARSE_COMMAND;
 use anyhow::Error;
 use fehler::throws;
 use serenity::{
     client::Context,
-    model::{guild::Member, id::GuildId}, framework::standard::macros::group,
+    framework::standard::macros::group,
+    model::{guild::Member, id::GuildId},
 };
-use crate::kitsu::parse::PARSE_COMMAND;
 
 mod greet;
 pub mod parse;
