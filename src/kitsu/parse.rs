@@ -71,8 +71,8 @@ pub fn parse(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult {
             if r.difficulty == 101 {
                 mb.push(" (Extrême)");
             }
-            mb.push(" ");
-            mb.push(r.spec);
+            mb.push(" : ");
+            mb.push_italic(r.spec);
             mb.push(" ");
             mb.push_bold_line(format!("{:.1}%", r.percentile));
         }
