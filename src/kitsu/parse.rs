@@ -48,7 +48,7 @@ pub fn parse(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult {
         };
         let api_key = std::env::var("FFLOG_V1_KEY").context("no fflogs api key in env")?;
         let api_url = Url::parse(FFLOGS_API_V1)?;
-        let mut url = api_url.clone();
+        let mut url = api_url;
         url
         .path_segments_mut().map_err(|_| anyhow!("cannot-be-a-base"))?
         .push("rankings")
