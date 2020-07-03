@@ -4,10 +4,10 @@ use crate::{
     error::{wrap_cmd_err, AVoid},
     shadowrun::{runners, RUNNER},
     state::{encode, extract, Embedded},
+    string::StrExt,
 };
 use anyhow::anyhow;
 use chrono::{Datelike, Duration};
-use inflector::Inflector;
 use serde::{Deserialize, Serialize};
 use serenity::{
     client::Context,
@@ -135,7 +135,7 @@ fn refresh(ctx: &Context, msg: &mut Message) -> AVoid {
                     (
                         format!(
                             "{} {}",
-                            fr_weekday_to_str(date.weekday()).to_sentence_case(),
+                            fr_weekday_to_str(date.weekday()).title_case(),
                             fr_day_to_str(date)
                         ),
                         {

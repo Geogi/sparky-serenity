@@ -15,6 +15,7 @@ use serenity::{
     utils::MessageBuilder,
 };
 use std::collections::HashMap;
+use crate::string::StrExt;
 
 const FFLOGS_API_V1: &str = "https://www.fflogs.com/v1";
 
@@ -83,7 +84,7 @@ pub fn bestlogs(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult 
             .map_err(|_| anyhow!("cannot-be-a-base"))?
             .push("parses")
             .push("character")
-            .push(character)
+            .push(&character)
             .push(server.unwrap_or("Omega"))
             .push("EU");
         url.query_pairs_mut()
@@ -129,17 +130,18 @@ pub fn bestlogs(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult 
             mb.push_bold_line(format!("{:.0}%", log.percentile.floor()));
         }
         msg.channel_id
-            .send_message(ctx, |m| m.embed(|e| e.title(character).description(mb)))?;
+            .send_message(ctx, |m| m.embed(|e| e.title(character.title_case()).description(mb)))?;
         Ok(())
     })
 }
 
-fn char_name(input: &str) -> IResult<&str, &str> {
-    let end = input.find(|c: char| !c.is_alpha() && ![' ', '\'', '-'].contains(&c));
+fn char_name(input: &str) -> IResult<&str, String> {
+    let end = input.find(|c: char| !c.is_alpha() && ![' ', '\'', '’', '-'].contains(&c));
     let (matched, rest) = if let Some(end) = end {
         input.split_at(end)
     } else {
         (input, "")
     };
-    Ok((rest, matched))
+    let correct_apostrophes = matched.replace('’', "'");
+    Ok((rest, correct_apostrophes))
 }
