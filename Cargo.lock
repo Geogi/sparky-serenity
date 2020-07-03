@@ -1392,7 +1392,7 @@ dependencies = [
 
 [[package]]
 name = "sparky"
-version = "3.4.0-dev"
+version = "3.3.3"
 dependencies = [
  "anyhow",
  "base64 0.12.3",

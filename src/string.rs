@@ -17,7 +17,7 @@ impl<T: Deref<Target = str>> StrExt for T {
                 out.push(c);
             }
             up_next = c.is_whitespace();
-        };
+        }
         out
     }
 }

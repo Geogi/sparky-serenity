@@ -1,4 +1,5 @@
 use crate::error::wrap_cmd_err;
+use crate::string::StrExt;
 use anyhow::{anyhow, Context as _};
 use nom::character::complete::{alpha1, char};
 use nom::{
@@ -15,7 +16,6 @@ use serenity::{
     utils::MessageBuilder,
 };
 use std::collections::HashMap;
-use crate::string::StrExt;
 
 const FFLOGS_API_V1: &str = "https://www.fflogs.com/v1";
 
@@ -129,8 +129,9 @@ pub fn bestlogs(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult 
             mb.push(" ");
             mb.push_bold_line(format!("{:.0}%", log.percentile.floor()));
         }
-        msg.channel_id
-            .send_message(ctx, |m| m.embed(|e| e.title(character.title_case()).description(mb)))?;
+        msg.channel_id.send_message(ctx, |m| {
+            m.embed(|e| e.title(character.title_case()).description(mb))
+        })?;
         Ok(())
     })
 }
