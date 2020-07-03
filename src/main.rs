@@ -33,6 +33,7 @@ mod http;
 mod kitsu;
 mod shadowrun;
 mod state;
+mod string;
 mod utils;
 
 #[allow(clippy::unreadable_literal)]
