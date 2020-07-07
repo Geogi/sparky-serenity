@@ -19,6 +19,13 @@ use std::collections::HashMap;
 
 const FFLOGS_API_V1: &str = "https://www.fflogs.com/v1";
 
+const ZONES: &[(u64, bool, &str)] = &[
+    (28, false, "Défis (Extrême)"),
+    (29, true, "Eden’s Gate (Sadique)"),
+    (33, true, "Eden’s Verse (Sadique)"),
+    (32, false, "Fatals"),
+];
+
 #[derive(Deserialize)]
 #[allow(dead_code, non_snake_case)]
 struct Ranking {
@@ -78,59 +85,63 @@ pub fn bestlogs(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult 
             return Ok(());
         };
         let api_key = std::env::var("FFLOG_V1_KEY").context("no fflogs api key in env")?;
-        let api_url = Url::parse(FFLOGS_API_V1)?;
-        let mut url = api_url;
-        url.path_segments_mut()
+        let mut api_base = Url::parse(FFLOGS_API_V1)?;
+        api_base
+            .path_segments_mut()
             .map_err(|_| anyhow!("cannot-be-a-base"))?
             .push("parses")
             .push("character")
             .push(&character)
             .push(server.unwrap_or("Omega"))
             .push("EU");
-        url.query_pairs_mut()
-            .append_pair("api_key", &api_key)
-            .append_pair("metric", "rdps")
-            .append_pair("timeframe", "historical");
-        let result = crate::http::get(ctx, url)?;
-        if result.status() == StatusCode::BAD_REQUEST {
-            msg.reply(ctx, "FFLogs ne trouve pas ce personnage.")?;
-            return Ok(());
-        }
-        let body = result.text()?;
-        let all_parses: Vec<Parse> = serde_json::from_str(&body)?;
-        let mut best_by_encounter = HashMap::new();
-        for parse in &all_parses {
-            if best_by_encounter
-                .get(&(parse.encounterID, parse.difficulty))
-                .map(|(_, p)| p < &parse.percentile)
-                .unwrap_or(true)
+        let mut mbs = vec![];
+        for zone in ZONES {
+            let mut api_zone = api_base.clone();
+            api_zone
+                .query_pairs_mut()
+                .append_pair("api_key", &api_key)
+                .append_pair("metric", "rdps")
+                .append_pair("timeframe", "historical")
+                .append_pair("zone", &zone.0.to_string());
+            let result = crate::http::get(ctx, api_zone)?;
+            if result.status() == StatusCode::BAD_REQUEST {
+                msg.reply(ctx, "FFLogs ne trouve pas ce personnage.")?;
+                return Ok(());
+            }
+            let body = result.text()?;
+            let all_parses: Vec<Parse> = serde_json::from_str(&body)?;
+            let mut encounter_perc = HashMap::new();
+            let mut encounter_report = HashMap::new();
+            for parse in all_parses
+                .iter()
+                .filter(|p| p.difficulty == if zone.1 { 101 } else { 100 })
             {
-                best_by_encounter.insert(
-                    (parse.encounterID, parse.difficulty),
-                    (parse.reportID.clone(), parse.percentile),
-                );
+                if encounter_perc
+                    .get(&parse.encounterID)
+                    .map(|p| p < &parse.percentile)
+                    .unwrap_or(true)
+                {
+                    encounter_perc.insert(parse.encounterID, parse.percentile);
+                    encounter_report.insert(parse.encounterID, parse);
+                }
             }
-        }
-        let best_logs = all_parses.into_iter().filter(|p| {
-            best_by_encounter
-                .get(&(p.encounterID, p.difficulty))
-                .unwrap()
-                .0
-                == p.reportID
-        });
-        let mut mb = MessageBuilder::new();
-        for log in best_logs {
-            mb.push(&log.encounterName);
-            if log.difficulty == 101 {
-                mb.push(" (Sadique)");
+            let mut mb = MessageBuilder::new();
+            let mut sorted: Vec<&&Parse> = encounter_report.values().collect();
+            sorted.sort_by_key(|e| e.encounterID);
+            for log in sorted {
+                mb
+                .push(&log.encounterName)
+                .push(" : ")
+                .push_italic(&log.spec)
+                .push(" ")
+                .push_bold_line(format!("{:.0}%", log.percentile.floor()));
             }
-            mb.push(" : ");
-            mb.push_italic(&log.spec);
-            mb.push(" ");
-            mb.push_bold_line(format!("{:.0}%", log.percentile.floor()));
+            if !encounter_report.is_empty() {
+                mbs.push((zone.2, mb, false));
+            }
         }
         msg.channel_id.send_message(ctx, |m| {
-            m.embed(|e| e.title(character.title_case()).description(mb))
+            m.embed(|e| e.title(character.title_case()).fields(mbs))
         })?;
         Ok(())
     })
