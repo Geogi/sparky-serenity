@@ -129,12 +129,11 @@ pub fn bestlogs(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult 
             let mut sorted: Vec<&&Parse> = encounter_report.values().collect();
             sorted.sort_by_key(|e| e.encounterID);
             for log in sorted {
-                mb
-                .push(&log.encounterName)
-                .push(" : ")
-                .push_italic(&log.spec)
-                .push(" ")
-                .push_bold_line(format!("{:.0}%", log.percentile.floor()));
+                mb.push(&log.encounterName)
+                    .push(" : ")
+                    .push_italic(&log.spec)
+                    .push(" ")
+                    .push_bold_line(format!("{:.0}%", log.percentile.floor()));
             }
             if !encounter_report.is_empty() {
                 mbs.push((zone.2, mb, false));
