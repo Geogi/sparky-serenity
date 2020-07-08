@@ -19,11 +19,11 @@ use std::collections::HashMap;
 
 const FFLOGS_API_V1: &str = "https://www.fflogs.com/v1";
 
-const ZONES: &[(u64, bool, &str)] = &[
-    (28, false, "Défis (Extrême)"),
-    (29, true, "Eden’s Gate (Sadique)"),
-    (33, true, "Eden’s Verse (Sadique)"),
-    (32, false, "Fatals"),
+const ZONES: &[(&[u64], bool, &str)] = &[
+    (&[28], false, "Défis (Extrême)"),
+    (&[29], true, "Eden’s Gate (Sadique)"),
+    (&[33], true, "Eden’s Verse (Sadique)"),
+    (&[19, 23, 30, 32], false, "Fatals"),
 ];
 
 #[derive(Deserialize)]
@@ -48,7 +48,7 @@ struct Ranking {
     total: f64,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[allow(dead_code, non_snake_case)]
 struct Parse {
     encounterID: u64,
@@ -95,48 +95,54 @@ pub fn bestlogs(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult 
             .push(server.unwrap_or("Omega"))
             .push("EU");
         let mut mbs = vec![];
-        for zone in ZONES {
-            let mut api_zone = api_base.clone();
-            api_zone
-                .query_pairs_mut()
-                .append_pair("api_key", &api_key)
-                .append_pair("metric", "rdps")
-                .append_pair("timeframe", "historical")
-                .append_pair("zone", &zone.0.to_string());
-            let result = crate::http::get(ctx, api_zone)?;
-            if result.status() == StatusCode::BAD_REQUEST {
-                msg.reply(ctx, "FFLogs ne trouve pas ce personnage.")?;
-                return Ok(());
-            }
-            let body = result.text()?;
-            let all_parses: Vec<Parse> = serde_json::from_str(&body)?;
-            let mut encounter_perc = HashMap::new();
-            let mut encounter_report = HashMap::new();
-            for parse in all_parses
-                .iter()
-                .filter(|p| p.difficulty == if zone.1 { 101 } else { 100 })
-            {
-                if encounter_perc
-                    .get(&parse.encounterID)
-                    .map(|p| p < &parse.percentile)
-                    .unwrap_or(true)
-                {
-                    encounter_perc.insert(parse.encounterID, parse.percentile);
-                    encounter_report.insert(parse.encounterID, parse);
-                }
-            }
+        for kind in ZONES {
+            let mut kind_parses = vec![];
             let mut mb = MessageBuilder::new();
-            let mut sorted: Vec<&&Parse> = encounter_report.values().collect();
-            sorted.sort_by_key(|e| e.encounterID);
-            for log in sorted {
+            for zone in kind.0 {
+                let mut api_zone = api_base.clone();
+                api_zone
+                    .query_pairs_mut()
+                    .append_pair("api_key", &api_key)
+                    .append_pair("timeframe", "historical")
+                    .append_pair("zone", &zone.to_string());
+                if zone >= &28 {
+                    api_zone.query_pairs_mut().append_pair("metric", "rdps");
+                }
+                let result = crate::http::get(ctx, api_zone)?;
+                if result.status() == StatusCode::BAD_REQUEST {
+                    msg.reply(ctx, "FFLogs ne trouve pas ce personnage.")?;
+                    return Ok(());
+                }
+                let body = result.text()?;
+                let all_parses: Vec<Parse> = serde_json::from_str(&body)?;
+                let mut encounter_perc = HashMap::new();
+                let mut encounter_report = HashMap::new();
+                for parse in all_parses
+                    .iter()
+                    .filter(|p| p.difficulty == if kind.1 { 101 } else { 100 })
+                {
+                    if encounter_perc
+                        .get(&parse.encounterID)
+                        .map(|p| p < &parse.percentile)
+                        .unwrap_or(true)
+                    {
+                        encounter_perc.insert(parse.encounterID, parse.percentile);
+                        encounter_report.insert(parse.encounterID, parse);
+                    }
+                }
+                let mut sorted: Vec<Parse> = encounter_report.values().cloned().cloned().collect();
+                sorted.sort_by_key(|e| e.encounterID);
+                kind_parses.append(&mut sorted);
+            }
+            for log in &kind_parses {
                 mb.push(&log.encounterName)
                     .push(" : ")
                     .push_italic(&log.spec)
                     .push(" ")
                     .push_bold_line(format!("{:.0}%", log.percentile.floor()));
             }
-            if !encounter_report.is_empty() {
-                mbs.push((zone.2, mb, false));
+            if !kind_parses.is_empty() {
+                mbs.push((kind.2, mb, false));
             }
         }
         msg.channel_id.send_message(ctx, |m| {
