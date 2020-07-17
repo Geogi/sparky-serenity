@@ -1,3 +1,6 @@
+mod greet;
+pub mod parse;
+
 use crate::kitsu::parse::BESTLOGS_COMMAND;
 use anyhow::Error;
 use fehler::throws;
@@ -6,9 +9,6 @@ use serenity::{
     framework::standard::macros::group,
     model::{guild::Member, id::GuildId},
 };
-
-mod greet;
-pub mod parse;
 
 const GUILD_ID: GuildId = GuildId(587883211225563160);
 

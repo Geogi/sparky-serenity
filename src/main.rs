@@ -1,3 +1,22 @@
+#[macro_use]
+mod macros;
+
+mod admin;
+mod date;
+mod discord;
+mod edf;
+mod error;
+mod general;
+mod handler;
+mod help;
+mod http;
+mod kitsu;
+mod shadowrun;
+mod state;
+mod string;
+mod utils;
+mod vote;
+
 use crate::{
     admin::ADMIN_GROUP,
     edf::EDF_GROUP,
@@ -17,24 +36,6 @@ use serenity::{
     prelude::Mutex as SerenityMutex,
 };
 use std::{collections::HashSet, env, sync::Arc};
-
-#[macro_use]
-mod macros;
-
-mod admin;
-mod date;
-mod discord;
-mod edf;
-mod error;
-mod general;
-mod handler;
-mod help;
-mod http;
-mod kitsu;
-mod shadowrun;
-mod state;
-mod string;
-mod utils;
 
 #[allow(clippy::unreadable_literal)]
 const OWNER: UserId = UserId(190183362294579211);

@@ -1,3 +1,8 @@
+pub mod confirm;
+pub mod plan;
+pub mod remind;
+pub mod roll;
+
 use crate::shadowrun::{
     confirm::CONFIRM_COMMAND, plan::PLAN_COMMAND, remind::REMIND_COMMAND, roll::ROLL_COMMAND,
 };
@@ -9,11 +14,6 @@ use serenity::{
     model::id::{RoleId, UserId},
     model::{channel::Reaction, guild::Role},
 };
-
-pub mod confirm;
-pub mod plan;
-pub mod remind;
-pub mod roll;
 
 match_env! {
 pub const RUNNER: RoleId = match {
