@@ -1,7 +1,7 @@
 use crate::{
     date::{fr_day_to_str, fr_month_to_str, fr_weekday_to_emote, fr_weekday_to_str, TZ_DEFAULT},
     discord::{pop_self, reaction_is_own},
-    error::{wrap_cmd_err, AVoid},
+    error::AVoid,
     shadowrun::{runners, RUNNER},
     state::{encode, extract, Embedded},
     string::StrExt,
@@ -11,44 +11,39 @@ use chrono::{Datelike, Duration};
 use serde::{Deserialize, Serialize};
 use serenity::{
     client::Context,
-    framework::standard::macros::command,
-    framework::standard::{Args, CommandResult},
     model::channel::ReactionType::Unicode,
     model::channel::{Message, Reaction},
     model::guild::Role,
     utils::MessageBuilder,
 };
+use sparky_macros::cmd;
 use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize)]
 pub struct ShadowrunPlan;
 
-#[command]
+#[cmd]
 #[description = "Crée un planning jusqu’à la semaine suivante."]
-pub fn plan(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult {
-    wrap_cmd_err(|| {
-        let ctx = &*ctx;
-        let first_day = msg.timestamp.with_timezone(&TZ_DEFAULT).date();
-        let runners = runners(ctx)?;
-        let mut base = msg.channel_id.send_message(ctx, |m| {
-            m.content({
-                let mut mb = MessageBuilder::new();
-                for runner in &runners {
-                    mb.mention(runner);
-                    mb.push(" ");
-                }
-                mb
-            })
-            .embed(|e| e.description("En préparation..."))
-            .reactions(
-                (0..=6)
-                    .map(|inc| fr_weekday_to_emote((first_day + Duration::days(inc)).weekday()))
-                    .chain(vec!["🚫", "💻"]),
-            )
-        })?;
-        refresh(ctx, &mut base)?;
-        Ok(())
-    })
+pub fn plan(ctx: &Context, msg: &Message) {
+    let first_day = msg.timestamp.with_timezone(&TZ_DEFAULT).date();
+    let runners = runners(ctx)?;
+    let mut base = msg.channel_id.send_message(ctx, |m| {
+        m.content({
+            let mut mb = MessageBuilder::new();
+            for runner in &runners {
+                mb.mention(runner);
+                mb.push(" ");
+            }
+            mb
+        })
+        .embed(|e| e.description("En préparation..."))
+        .reactions(
+            (0..=6)
+                .map(|inc| fr_weekday_to_emote((first_day + Duration::days(inc)).weekday()))
+                .chain(vec!["🚫", "💻"]),
+        )
+    })?;
+    refresh(ctx, &mut base)?;
 }
 
 pub fn react(ctx: &Context, reaction: &Reaction) -> AVoid {

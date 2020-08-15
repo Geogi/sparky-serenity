@@ -1,51 +1,43 @@
 use crate::{
-    error::{wrap_cmd_err, ARes},
+    error::ARes,
     shadowrun::runners,
     state::{find_by_state, Embedded},
 };
 use anyhow::bail;
 use serenity::{
-    client::Context,
-    framework::standard::macros::command,
-    framework::standard::{Args, CommandResult},
-    model::channel::Message,
-    model::channel::ReactionType::Unicode,
-    model::id::UserId,
-    utils::MessageBuilder,
+    client::Context, model::channel::Message, model::channel::ReactionType::Unicode,
+    model::id::UserId, utils::MessageBuilder,
 };
+use sparky_macros::cmd;
 use std::collections::HashSet;
 
-#[command]
+#[cmd]
 #[description = "Analyse le précédent sondage (planning ou confirmation) et notifie les \
 utilisateurs n’ayant pas voté."]
-fn remind(ctx: &mut Context, msg: &Message, mut _args: Args) -> CommandResult {
-    wrap_cmd_err(|| {
-        let ctx = &*ctx;
-        let poll = last_poll(ctx, msg)?;
-        let status = status(ctx, poll)?;
-        let Status {
-            polled: mut pending,
-            answered,
-        } = status;
-        pending.retain(|u| !answered.contains(u));
-        if pending.is_empty() {
-            msg.reply(ctx, "tout le monde a voté.")?;
-            return Ok(());
-        }
-        msg.channel_id.send_message(ctx, |m| {
-            m.content({
-                let mut mb = MessageBuilder::new();
-                mb.push("Rappel : un sondage est en cours. ");
-                for user in pending {
-                    mb.mention(&user);
-                    mb.push(", ");
-                }
-                mb.push("merci de répondre ; utiliser 🚫 si pas possible.");
-                mb
-            })
-        })?;
-        Ok(())
-    })
+fn remind(ctx: &Context, msg: &Message) {
+    let poll = last_poll(ctx, msg)?;
+    let status = status(ctx, poll)?;
+    let Status {
+        polled: mut pending,
+        answered,
+    } = status;
+    pending.retain(|u| !answered.contains(u));
+    if pending.is_empty() {
+        msg.reply(ctx, "tout le monde a voté.")?;
+        return;
+    }
+    msg.channel_id.send_message(ctx, |m| {
+        m.content({
+            let mut mb = MessageBuilder::new();
+            mb.push("Rappel : un sondage est en cours. ");
+            for user in pending {
+                mb.mention(&user);
+                mb.push(", ");
+            }
+            mb.push("merci de répondre ; utiliser 🚫 si pas possible.");
+            mb
+        })
+    })?;
 }
 
 struct Status {

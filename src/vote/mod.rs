@@ -1,7 +1,7 @@
 mod start;
 
-use start::START_COMMAND;
 use serenity::framework::standard::macros::group;
+use start::START_COMMAND;
 
 #[group]
 #[commands(start)]

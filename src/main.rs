@@ -18,16 +18,12 @@ mod utils;
 mod vote;
 
 use crate::{
-    admin::ADMIN_GROUP,
-    edf::EDF_GROUP,
-    error::{log_cmd_err, AVoid},
-    general::GENERAL_GROUP,
-    handler::Handler,
-    help::MY_HELP,
-    kitsu::KITSU_GROUP,
-    shadowrun::SHADOWRUN_GROUP,
+    admin::ADMIN_GROUP, edf::EDF_GROUP, error::log_cmd_err, general::GENERAL_GROUP,
+    handler::Handler, help::MY_HELP, kitsu::KITSU_GROUP, shadowrun::SHADOWRUN_GROUP,
 };
+use anyhow::Error;
 use dotenv::dotenv;
+use fehler::throws;
 use log::info;
 use serenity::{
     client::{bridge::gateway::ShardManager, Client},
@@ -35,6 +31,7 @@ use serenity::{
     model::id::UserId,
     prelude::Mutex as SerenityMutex,
 };
+use sparky_macros::shortcuts;
 use std::{collections::HashSet, env, sync::Arc};
 
 #[allow(clippy::unreadable_literal)]
@@ -51,7 +48,8 @@ impl typemap::Key for ManagerKey {
     type Value = Arc<SerenityMutex<ShardManager>>;
 }
 
-fn main() -> AVoid {
+#[throws]
+fn main() {
     dotenv()?;
     env_logger::init();
 
@@ -87,12 +85,10 @@ fn main() -> AVoid {
         .insert::<ManagerKey>(client.shard_manager.clone());
 
     client.start()?;
-
-    Ok(())
 }
 
 shortcuts! {
-    (r, simple, bestlogs) match {
+    match () {
         r => shadowrun::roll::roll,
         simple => general::simple,
         bestlogs => kitsu::parse::bestlogs,

@@ -4,7 +4,7 @@ use crate::{
         fr_weekday_to_str, hm24_format, parse_time_emote_like, time_emote, TZ_DEFAULT,
     },
     discord::{pop_self, reaction_is_own},
-    error::{wrap_cmd_err, ARes, AVoid},
+    error::{ARes, AVoid},
     help::{clap_help, clap_settings},
     shadowrun::RUNNER,
     state::{encode, Embedded},
@@ -19,8 +19,7 @@ use fehler::throws;
 use serde::{Deserialize, Serialize};
 use serenity::{
     client::Context,
-    framework::standard::macros::command,
-    framework::standard::{Args, CommandResult},
+    framework::standard::Args,
     model::channel::ReactionType::Unicode,
     model::channel::{Message, Reaction},
     model::guild::Role,
@@ -28,10 +27,12 @@ use serenity::{
     model::user::User,
     utils::MessageBuilder,
 };
+use sparky_macros::cmd;
 use std::{
     collections::{HashMap, HashSet},
     convert::TryFrom,
 };
+
 use Attendance::{Cancelled, Confirmed, Pending};
 use Hosting::{Demanded, Granted, Unspecified};
 
@@ -56,114 +57,110 @@ pub struct ShadowrunConfirm {
     pub alt_times: Vec<HourHalf>,
 }
 
-#[command]
+#[cmd]
 #[description = "Lit le dernier planning et crée un message de confirmation pour un jour donné.\n\
 ***ILC :** appelez avec `--help` pour l’utilisation.*"]
-pub fn confirm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    wrap_cmd_err(|| {
-        let ctx = &*ctx;
-        let app = App::new(clap_name("sr confirm"))
-            .about(
-                "Lit le dernier planning et crée un message de confirmation pour un jour \
+pub fn confirm(ctx: &Context, msg: &Message, args: Args) {
+    let app = App::new(clap_name("sr confirm"))
+        .about(
+            "Lit le dernier planning et crée un message de confirmation pour un jour \
                 donné.",
-            )
-            .arg(
-                Arg::with_name("JOUR")
-                    .help("Lettre du jour de la semaine choisi (LAEJVSD).")
-                    .possible_values(&[
-                        "l", "a", "e", "j", "v", "s", "d", "L", "A", "E", "J", "V", "S", "D",
-                    ]),
-            )
-            .arg(
-                Arg::with_name("online")
-                    .short("o")
-                    .help("Cette séance sera en ligne."),
-            )
-            .arg(
-                Arg::with_name("time")
-                    .short("t")
-                    .takes_value(true)
-                    .help("Horaire proposé par défaut.")
-                    .default_value("20"),
-            )
-            .arg(
-                Arg::with_name("alt-time")
-                    .short("T")
-                    .takes_value(true)
-                    .multiple(true)
-                    .help(
-                        "Horaires alternatifs par précédence croissante. \
+        )
+        .arg(
+            Arg::with_name("JOUR")
+                .help("Lettre du jour de la semaine choisi (LAEJVSD).")
+                .possible_values(&[
+                    "l", "a", "e", "j", "v", "s", "d", "L", "A", "E", "J", "V", "S", "D",
+                ]),
+        )
+        .arg(
+            Arg::with_name("online")
+                .short("o")
+                .help("Cette séance sera en ligne."),
+        )
+        .arg(
+            Arg::with_name("time")
+                .short("t")
+                .takes_value(true)
+                .help("Horaire proposé par défaut.")
+                .default_value("20"),
+        )
+        .arg(
+            Arg::with_name("alt-time")
+                .short("T")
+                .takes_value(true)
+                .multiple(true)
+                .help(
+                    "Horaires alternatifs par précédence croissante. \
                     Par défaut, 3 demi-heures suivantes.",
-                    ),
-            );
-        let app = clap_settings(app);
-        let args = match clap_help(ctx, msg, args, app)? {
-            Some(args) => args,
-            None => return Ok(()),
-        };
-        let plan = last_plan(ctx, msg)?;
-        let day = fr_weekday_from_shorthand(
-            args.value_of("JOUR")
-                .ok_or_else(|| anyhow!("unreachable: unspecified day"))?,
-        )?;
-        let online = args.is_present("online");
-        let (participants, date) = read_participants_date(ctx, &plan, day, online, TZ_DEFAULT)?;
-        let time = parse_time_emote_like(
-            args.value_of("time")
-                .context("unreachable: default value")?,
-        )?;
-        let mut reactions = vec!["✅", "🚫"];
-        if !online {
-            reactions.append(&mut vec!["🏠", "🚩"]);
-        }
-        let mut alt_times = vec![];
-        if let Some(it) = args.values_of("alt-time") {
-            for alt_time_str in it {
-                let alt_time = parse_time_emote_like(alt_time_str)?;
-                let emote = time_emote(alt_time)?;
-                if alt_time == time {
-                    msg.reply(
-                        ctx,
-                        "Erreur : un horaire alternatif correspond à l’horaire par \
+                ),
+        );
+    let app = clap_settings(app);
+    let args = match clap_help(ctx, msg, args, app)? {
+        Some(args) => args,
+        None => return,
+    };
+    let plan = last_plan(ctx, msg)?;
+    let day = fr_weekday_from_shorthand(
+        args.value_of("JOUR")
+            .ok_or_else(|| anyhow!("unreachable: unspecified day"))?,
+    )?;
+    let online = args.is_present("online");
+    let (participants, date) = read_participants_date(ctx, &plan, day, online, TZ_DEFAULT)?;
+    let time = parse_time_emote_like(
+        args.value_of("time")
+            .context("unreachable: default value")?,
+    )?;
+    let mut reactions = vec!["✅", "🚫"];
+    if !online {
+        reactions.append(&mut vec!["🏠", "🚩"]);
+    }
+    let mut alt_times = vec![];
+    if let Some(it) = args.values_of("alt-time") {
+        for alt_time_str in it {
+            let alt_time = parse_time_emote_like(alt_time_str)?;
+            let emote = time_emote(alt_time)?;
+            if alt_time == time {
+                msg.reply(
+                    ctx,
+                    "Erreur : un horaire alternatif correspond à l’horaire par \
                     défaut.",
-                    )?;
-                    return Ok(());
-                }
-                if reactions.contains(&emote) {
-                    msg.reply(ctx, "Erreur : une emote horaire est dupliquée.")?;
-                    return Ok(());
-                }
-                alt_times.push(time_to_serial(alt_time)?);
-                reactions.push(emote);
+                )?;
+                return;
             }
-        } else {
-            for i in 1..=3 {
-                reactions.push(time_emote(time + Duration::minutes(30 * i))?);
+            if reactions.contains(&emote) {
+                msg.reply(ctx, "Erreur : une emote horaire est dupliquée.")?;
+                return;
             }
+            alt_times.push(time_to_serial(alt_time)?);
+            reactions.push(emote);
         }
-        let data = ShadowrunConfirm {
-            date_timestamp: date.and_hms(12, 0, 0).timestamp(),
-            participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
-            online,
-            time: time_to_serial(time)?,
-            alt_times,
-        };
-        std::thread::sleep(std::time::Duration::from_secs(2));
-        let mut msg = msg.channel_id.send_message(ctx, |m| {
-            m.content({
-                let mut mb = MessageBuilder::new();
-                for participant in &participants {
-                    mb.mention(participant);
-                    mb.push(" ");
-                }
-                mb
-            })
-            .embed(|e| e.description("En préparation..."))
-            .reactions(reactions)
-        })?;
-        refresh(ctx, &mut msg, data).context("refresh embed")?;
-        Ok(())
-    })
+    } else {
+        for i in 1..=3 {
+            reactions.push(time_emote(time + Duration::minutes(30 * i))?);
+        }
+    }
+    let data = ShadowrunConfirm {
+        date_timestamp: date.and_hms(12, 0, 0).timestamp(),
+        participants_raw_ids: participants.iter().map(|u| u.id.0).collect(),
+        online,
+        time: time_to_serial(time)?,
+        alt_times,
+    };
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    let mut msg = msg.channel_id.send_message(ctx, |m| {
+        m.content({
+            let mut mb = MessageBuilder::new();
+            for participant in &participants {
+                mb.mention(participant);
+                mb.push(" ");
+            }
+            mb
+        })
+        .embed(|e| e.description("En préparation..."))
+        .reactions(reactions)
+    })?;
+    refresh(ctx, &mut msg, data).context("refresh embed")?;
 }
 
 pub fn react(ctx: &Context, reaction: &Reaction) -> AVoid {

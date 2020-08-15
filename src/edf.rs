@@ -1,7 +1,6 @@
 use crate::{
     date::TZ_DEFAULT,
     discord::delete_command_ifp,
-    error::wrap_cmd_err,
     state::{encode, find_by_state_limit, Embedded},
 };
 use anyhow::{bail, Context as _};
@@ -9,12 +8,12 @@ use chrono::{Duration, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use serenity::{
     client::Context,
-    framework::standard::macros::{command, group},
-    framework::standard::CommandResult,
+    framework::standard::macros::group,
     model::channel::Message,
     model::id::UserId,
     utils::{Colour, MessageBuilder},
 };
+use sparky_macros::cmd;
 
 #[group]
 #[prefix = "edf"]
@@ -30,76 +29,72 @@ pub struct EdfSing {
 
 const CHORUS_INTERVAL: i64 = 5;
 
-#[command]
+#[cmd]
 #[description = "Chante l'hymne des Forces de Défense Terrestre."]
-fn sing(ctx: &mut Context, msg: &Message) -> CommandResult {
-    wrap_cmd_err(|| {
-        let ctx = &*ctx;
-        let now_ts = Utc::now().timestamp();
-        let (mut target, mut state) = if let Ok((target, embed)) = find_by_state_limit(
-            ctx,
-            msg,
-            |d| {
-                matches!(d, Embedded::EEdfSing(EdfSing {until_timestamp, verses})
+fn sing(ctx: &Context, msg: &Message) {
+    let now_ts = Utc::now().timestamp();
+    let (mut target, mut state) = if let Ok((target, embed)) = find_by_state_limit(
+        ctx,
+        msg,
+        |d| {
+            matches!(d, Embedded::EEdfSing(EdfSing {until_timestamp, verses})
             if &now_ts <= until_timestamp && verses.len() < 8)
-            },
-            100,
-        ) {
-            match embed {
-                Embedded::EEdfSing(state) => {
-                    if state.verses.last().context("should not be empty")? == &msg.author.id.0 {
-                        msg.reply(ctx, "Il est défendu de chanter seul, soldat !")?;
-                        return Ok(());
-                    }
-                    (target, state)
+        },
+        100,
+    ) {
+        match embed {
+            Embedded::EEdfSing(state) => {
+                if state.verses.last().context("should not be empty")? == &msg.author.id.0 {
+                    msg.reply(ctx, "Il est défendu de chanter seul, soldat !")?;
+                    return;
                 }
-                _ => bail!("unreachable"),
+                (target, state)
             }
-        } else {
-            let target = msg
-                .channel_id
-                .send_message(ctx, |m| m.embed(|e| e.description("En préparation...")))?;
-            let state = EdfSing {
-                verses: vec![],
-                until_timestamp: 0,
-            };
-            (target, state)
+            _ => bail!("unreachable"),
+        }
+    } else {
+        let target = msg
+            .channel_id
+            .send_message(ctx, |m| m.embed(|e| e.description("En préparation...")))?;
+        let state = EdfSing {
+            verses: vec![],
+            until_timestamp: 0,
         };
-        let until = (Utc::now() + Duration::minutes(CHORUS_INTERVAL + 1))
-            .with_second(0)
-            .context("unreachable")?;
-        state.until_timestamp = until.timestamp();
-        state.verses.push(msg.author.id.0);
-        let guild_id = msg.guild(ctx).context("no guild")?.read().id;
-        let mut description = MessageBuilder::new();
-        for (index, user_id) in state.verses.iter().enumerate() {
-            let user = UserId(*user_id).to_user(ctx)?;
-            description
-                .push_bold(user.nick_in(ctx, guild_id).unwrap_or(user.name))
-                .push(" ")
-                .push(SONGS[index])
-                .push("\n");
-        }
-        if state.verses.len() < 8 {
-            description
-                .push_italic("\nLe chœur se termine à ")
-                .push_italic(until.with_timezone(&TZ_DEFAULT).format("%H:%M"))
-                .push_italic(".");
-        } else {
-            description.push_italic("\n🎌 EDF ! EDF ! 🎌");
-        }
-        let footer = encode(Embedded::EEdfSing(state))?;
-        target.edit(ctx, |m| {
-            m.embed(|e| {
-                e.title("Hymne des Forces de Défense Terrestre")
-                    .description(description)
-                    .footer(|f| f.text(footer))
-                    .colour(Colour::DARK_BLUE)
-            })
-        })?;
-        delete_command_ifp(ctx, msg)?;
-        Ok(())
-    })
+        (target, state)
+    };
+    let until = (Utc::now() + Duration::minutes(CHORUS_INTERVAL + 1))
+        .with_second(0)
+        .context("unreachable")?;
+    state.until_timestamp = until.timestamp();
+    state.verses.push(msg.author.id.0);
+    let guild_id = msg.guild(ctx).context("no guild")?.read().id;
+    let mut description = MessageBuilder::new();
+    for (index, user_id) in state.verses.iter().enumerate() {
+        let user = UserId(*user_id).to_user(ctx)?;
+        description
+            .push_bold(user.nick_in(ctx, guild_id).unwrap_or(user.name))
+            .push(" ")
+            .push(SONGS[index])
+            .push("\n");
+    }
+    if state.verses.len() < 8 {
+        description
+            .push_italic("\nLe chœur se termine à ")
+            .push_italic(until.with_timezone(&TZ_DEFAULT).format("%H:%M"))
+            .push_italic(".");
+    } else {
+        description.push_italic("\n🎌 EDF ! EDF ! 🎌");
+    }
+    let footer = encode(Embedded::EEdfSing(state))?;
+    target.edit(ctx, |m| {
+        m.embed(|e| {
+            e.title("Hymne des Forces de Défense Terrestre")
+                .description(description)
+                .footer(|f| f.text(footer))
+                .colour(Colour::DARK_BLUE)
+        })
+    })?;
+    delete_command_ifp(ctx, msg)?;
 }
 
 static SONGS: [&str; 8] = [

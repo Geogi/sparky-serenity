@@ -37,24 +37,3 @@ macro_rules! handle {
         );
     };
 }
-
-macro_rules! shortcuts {
-    ($shorts:tt match {$($short:ident => $full:path),*$(,)?}) => {
-        #[serenity::framework::standard::macros::group]
-        #[commands $shorts]
-        struct Shortcut;
-
-        $(
-            #[serenity::framework::standard::macros::command]
-            #[help_available(false)]
-            fn $short(
-                _ctx: &mut serenity::client::Context,
-                _msg: &serenity::model::channel::Message,
-                _args: serenity::framework::standard::Args
-            ) -> serenity::framework::standard::CommandResult
-            {
-                $full(_ctx, _msg, _args)
-            }
-        )*
-    };
-}

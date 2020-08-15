@@ -2,7 +2,6 @@
 #![allow(dead_code, unused_variables)]
 
 use crate::{
-    error::wrap_cmd_err,
     help::{clap_bad_use, clap_help, clap_settings},
     utils::clap_name,
 };
@@ -23,28 +22,24 @@ use rand::{
     thread_rng, Rng,
 };
 use serenity::{
-    client::Context,
-    framework::standard::macros::command,
-    framework::standard::{Args, CommandResult},
-    model::channel::Message,
-    utils::MessageBuilder,
+    client::Context, framework::standard::Args, model::channel::Message, utils::MessageBuilder,
 };
+use sparky_macros::cmd;
 use std::{
     cmp::{min, Ordering},
     num::ParseIntError,
     str::FromStr,
 };
 
-#[command]
+#[cmd]
 #[description = "Lance des dés.\n***ILC :** appelez avec `--help` \
 pour l’utilisation.*"]
-pub fn roll(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    wrap_cmd_err(|| {
-        let app_name = clap_name("sr roll");
-        let app = App::new(app_name.clone())
-            .about("Lance des dés.")
-            .long_about(
-                "**Lance des dés**\n\
+pub fn roll(ctx: &Context, msg: &Message, args: Args) {
+    let app_name = clap_name("sr roll");
+    let app = App::new(app_name.clone())
+        .about("Lance des dés.")
+        .long_about(
+            "**Lance des dés**\n\
                 Par défaut en mode Shadowrun. D’autres sont accessibles par des options.\n\
                 En mode Shadowrun, trois formes sont supportées :\n\
                 • `R*[L](S)` : **Jet simple.** `R` réserve, `*` chance utilisée, `L` limite, `S` \
@@ -54,31 +49,29 @@ pub fn roll(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                 obligatoires.\n\
                 • `R1*[L1]-R2*[L2]` : **Jet opposé.** Seuls `R1` et `-R2` obligatoires.\n\
                 Toutes les valeurs sauf `T` peuvent être une série de termes.",
-            )
-            .arg(Arg::with_name("EXPR").help(
-                "Expression de lancer de dés. Cf. description (mode Shadowrun, par défaut)\n\
+        )
+        .arg(Arg::with_name("EXPR").help(
+            "Expression de lancer de dés. Cf. description (mode Shadowrun, par défaut)\n\
                 ou options (modes alternatifs).",
-            ));
-        let app = clap_settings(app);
-        let args = match clap_help(ctx, msg, args, app)? {
-            Some(args) => args,
-            None => return Ok(()),
-        };
-        let test = if let Ok(("", test)) = shadowrun_tests(
-            args.value_of("EXPR")
-                .ok_or_else(|| anyhow!("unreachable: no expr"))?,
-        ) {
-            test
-        } else {
-            clap_bad_use(ctx, msg, app_name)?;
-            return Ok(());
-        };
-        let mut rng = thread_rng();
-        let (summary, details) = resolve(&mut rng, test);
-        msg.channel_id
-            .send_message(ctx, |m| m.embed(|e| e.title(summary).description(details)))?;
-        Ok(())
-    })
+        ));
+    let app = clap_settings(app);
+    let args = match clap_help(ctx, msg, args, app)? {
+        Some(args) => args,
+        None => return,
+    };
+    let test = if let Ok(("", test)) = shadowrun_tests(
+        args.value_of("EXPR")
+            .ok_or_else(|| anyhow!("unreachable: no expr"))?,
+    ) {
+        test
+    } else {
+        clap_bad_use(ctx, msg, app_name)?;
+        return;
+    };
+    let mut rng = thread_rng();
+    let (summary, details) = resolve(&mut rng, test);
+    msg.channel_id
+        .send_message(ctx, |m| m.embed(|e| e.title(summary).description(details)))?;
 }
 
 enum ShadowrunTest {
