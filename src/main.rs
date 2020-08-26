@@ -9,8 +9,6 @@ mod error;
 mod general;
 mod handler;
 mod help;
-mod http;
-mod kitsu;
 mod shadowrun;
 mod state;
 mod string;
@@ -19,7 +17,7 @@ mod vote;
 
 use crate::{
     admin::ADMIN_GROUP, edf::EDF_GROUP, error::log_cmd_err, general::GENERAL_GROUP,
-    handler::Handler, help::MY_HELP, kitsu::KITSU_GROUP, shadowrun::SHADOWRUN_GROUP,
+    handler::Handler, help::MY_HELP, shadowrun::SHADOWRUN_GROUP,
 };
 use anyhow::Error;
 use dotenv::dotenv;
@@ -68,7 +66,6 @@ fn main() {
             .group(&ADMIN_GROUP)
             .group(&EDF_GROUP)
             .group(&GENERAL_GROUP)
-            .group(&KITSU_GROUP)
             .group(&SHADOWRUN_GROUP)
             .help(&MY_HELP),
     );
@@ -91,6 +88,5 @@ shortcuts! {
     match () {
         r => shadowrun::roll::roll,
         simple => general::simple,
-        bestlogs => kitsu::parse::bestlogs,
     }
 }
