@@ -2,7 +2,7 @@ use crate::{error::log_handler_err, shadowrun::shadowrun_reaction};
 use anyhow::Context as _;
 use serenity::{
     client::{Context, EventHandler},
-    model::{channel::Reaction, },
+    model::channel::Reaction,
 };
 
 pub struct Handler;
